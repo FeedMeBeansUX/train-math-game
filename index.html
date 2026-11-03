@@ -45,9 +45,12 @@
     <!-- Driving (side view) -->
     <main id="screen-drive" class="screen" hidden>
       <section id="drive-stage" class="stage">
-        <div class="board">
+        <div id="drive-board" class="board">
           <canvas id="side"></canvas>
           <div id="signs" class="overlay-layer" aria-hidden="true"></div>
+          <div id="orders" class="hud orders"></div>
+          <div id="messages" class="hud messages" role="status" hidden></div>
+          <canvas id="minimap" class="hud"></canvas>
         </div>
       </section>
 
@@ -55,19 +58,29 @@
         <div class="card task">
           <p id="drive-status"></p>
         </div>
+        <div id="load" class="card load"></div>
         <div class="card">
           <h2 id="whereto-heading"></h2>
           <div id="destinations"></div>
-        </div>
-        <div class="card">
-          <h2 id="map-heading"></h2>
-          <canvas id="minimap"></canvas>
         </div>
         <div class="card actions">
           <button type="button" id="btn-map" class="btn"></button>
           <button type="button" id="btn-next-drive" class="btn"></button>
         </div>
       </aside>
+
+      <div id="round-done" class="overlay" hidden>
+        <div class="dialog" role="dialog" aria-labelledby="round-title">
+          <h2 id="round-title"></h2>
+          <div id="round-stars" class="stars"></div>
+          <div id="round-text"></div>
+          <div class="dialog-buttons">
+            <button type="button" id="btn-round-map" class="btn"></button>
+            <button type="button" id="btn-round-next" class="btn"></button>
+            <button type="button" id="btn-new-round" class="btn primary"></button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <div id="done" class="overlay" hidden>
@@ -89,7 +102,9 @@
   <script src="js/core/level.js"></script>
   <script src="js/core/network.js"></script>
   <script src="js/core/route.js"></script>
+  <script src="js/core/round.js"></script>
   <script src="js/data/themes.js"></script>
+  <script src="js/data/goods.js"></script>
   <script src="js/data/i18n.js"></script>
   <script src="js/data/levels.js"></script>
   <script src="js/gfx/sprites.js"></script>

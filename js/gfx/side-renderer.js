@@ -58,6 +58,51 @@
       return this.stations.map(st => ({ kind: st.kind, x: st.x - STATION_X + SIGN_X - camera, y: SIGN_TOP }));
     }
 
+    // ------------------------------------------------------------ goods geometry (world coordinates)
+
+    /** Top-left of the i-th item in the train: wagons are ten frames (2 rows of 5), bottom row first. */
+    slotPos(front, i) {
+      const wagon = Math.floor(i / TG.round.WAGON_CAPACITY);
+      const k = i % TG.round.WAGON_CAPACITY;
+      const row = Math.floor(k / 5), col = k % 5;
+      const right = front - SS.LOCO_W - 2 - wagon * (SS.WAGON_W + 2);
+      const left = right - SS.WAGON_W;
+      return { x: left + 2 + col * 8, y: RAIL_Y - SS.WAGON_H + 7 - 8 - row * 8 };
+    }
+
+    /** Left edge of goods pile p on the platform of station s. */
+    pileX(s, p) {
+      return this.stations[s].x - 150 + 8 + p * 38;
+    }
+
+    /** Top-left of the k-th item in a pile (a pyramid of 4-3-2-1). Supply piles sit on a crate. */
+    pileItemPos(s, p, k, supply) {
+      const base = this.pileX(s, p);
+      if (supply) return { x: base + 2 + (k % 3) * 8, y: PLATFORM_Y - 14 - 8 };
+      let row = 0, inRow = k;
+      while (inRow >= 4 - row && row < 3) { inRow -= 4 - row; row++; }
+      return { x: base + row * 4 + inRow * 8, y: PLATFORM_Y - 8 - row * 7 };
+    }
+
+    /** Pile index under an art-pixel point on the screen, for clicks; -1 if none. */
+    pileAt(s, count, sx, sy, camera) {
+      for (let p = 0; p < count; p++) {
+        const x = this.pileX(s, p) - camera;
+        if (sx >= x - 2 && sx <= x + 30 && sy >= PLATFORM_Y - 34 && sy <= PLATFORM_Y + 2) return p;
+      }
+      return -1;
+    }
+
+    /** Index of the train item under a screen point, -1 if none (only filled slots count). */
+    slotAt(front, n, sx, sy, camera) {
+      for (let i = 0; i < n; i++) {
+        const p = this.slotPos(front, i);
+        const x = p.x - camera;
+        if (sx >= x && sx < x + 8 && sy >= p.y && sy < p.y + 8) return i;
+      }
+      return -1;
+    }
+
     makeBallastStrip() {
       return S.makeSprite(STRIP, 16, set => {
         for (let x = 0; x < STRIP; x++) {
@@ -87,11 +132,16 @@
       this.drawNear(ctx, scenery * 0.7, sc.theme);
       this.drawPoles(ctx, scenery * 0.92);
 
-      for (const st of this.stations) this.drawStation(ctx, st, cam, view.time);
+      this.stations.forEach((st, i) => {
+        this.drawStation(ctx, st, cam, view.time);
+        this.drawPiles(ctx, i, (view.piles || [])[i] || [], cam);
+      });
       this.drawTrack(ctx, cam);
       for (const b of sc.bridges) this.drawBridge(ctx, b, cam);
       this.drawSmoke(ctx, view.smoke, cam);
       this.drawTrain(ctx, view.front - cam, view.wheelDist, sc.wagons);
+      this.drawCargo(ctx, view.front, view.cargo || [], cam);
+      for (const f of view.flyers || []) ctx.drawImage(SS.goodIcon(f.good), Math.round(f.x - cam), Math.round(f.y));
       this.strip(ctx, SS.foreground(), scenery * 1.25, H - 40);
 
       const out = this.ctx;
@@ -279,6 +329,38 @@
       }
       ctx.fillStyle = '#d5d9de';
       ctx.fillRect(x0 - 4, RAIL_Y, x1 - x0 + 8, 1);
+    }
+
+    /** piles: [{ good, count, supply }] */
+    drawPiles(ctx, s, piles, cam) {
+      piles.forEach((pile, p) => {
+        const x = Math.round(this.pileX(s, p) - cam);
+        if (x < -40 || x > W + 40) return;
+        if (pile.supply) {
+          ctx.drawImage(SS.crate(), x, PLATFORM_Y - 14);
+          ctx.drawImage(SS.goodIcon(pile.good), x + 10, PLATFORM_Y - 11);
+          for (let k = 0; k < 3; k++) {
+            const pos = this.pileItemPos(s, p, k, true);
+            ctx.drawImage(SS.goodIcon(pile.good), Math.round(pos.x - cam), pos.y);
+          }
+          const top = this.pileItemPos(s, p, 0, true);
+          ctx.drawImage(SS.goodIcon(pile.good), Math.round(top.x - cam + 8), top.y - 6);
+        } else {
+          for (let k = 0; k < Math.min(10, pile.count); k++) {
+            const pos = this.pileItemPos(s, p, k, false);
+            ctx.drawImage(SS.goodIcon(pile.good), Math.round(pos.x - cam), pos.y);
+          }
+        }
+      });
+    }
+
+    /** Goods in the wagons; cargo is a list of good ids (null = slot not shown yet). */
+    drawCargo(ctx, front, cargo, cam) {
+      cargo.forEach((good, i) => {
+        if (!good) return;
+        const p = this.slotPos(front, i);
+        ctx.drawImage(SS.goodIcon(good), Math.round(p.x - cam), p.y);
+      });
     }
 
     drawSmoke(ctx, smoke, cam) {

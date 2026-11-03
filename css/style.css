@@ -331,12 +331,6 @@ select { padding: 4px 8px; }
 }
 .destination .tag { font-size: 14px; color: var(--ok); font-weight: 700; }
 
-#minimap {
-  display: block;
-  margin: 0 auto;
-  image-rendering: pixelated;
-  border: 3px solid var(--card-edge);
-}
 
 /* Station name boards in the side view; sized in art pixels via --px (board: 96 x 32) */
 .sign {
@@ -350,8 +344,95 @@ select { padding: 4px 8px; }
   text-align: center;
   white-space: nowrap;
   font-size: calc(var(--px) * 9.5);
+  line-height: 1.05;
 }
 .sign .name { align-items: center; line-height: 1.05; }
 .sign .main { color: #ffffff; }
 .sign .second { color: var(--en); font-size: 0.7em; }
 .sign .second.lang-nl { color: #e8e2d4; }
+
+/* ------------------------------------------------------------ side-view HUD (sized via --px = css px per art px) */
+
+.hud {
+  position: absolute;
+  line-height: 1.25;
+}
+
+#minimap {
+  top: calc(var(--px) * 6);
+  right: calc(var(--px) * 6);
+  image-rendering: pixelated;
+  border: 3px solid var(--card-edge);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.orders {
+  top: calc(var(--px) * 6);
+  left: calc(var(--px) * 6);
+  max-width: 52%;
+  padding: 8px 12px 10px;
+  background: rgba(30, 38, 30, 0.88);
+  border: 3px solid #5a4330;
+  box-shadow: inset 0 0 0 2px #8a6a48, 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+.orders h2 { margin: 0 0 4px; font-size: 18px; color: var(--accent); }
+.orders ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.orders li { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; }
+.orders li.done .sentence { opacity: 0.55; text-decoration: line-through; text-decoration-thickness: 2px; }
+.order-status { font-weight: 700; font-size: 18px; color: var(--accent); min-width: 2ch; text-align: right; }
+.orders li.done .order-status { color: var(--ok); font-size: 24px; }
+
+.sentence { margin: 0; display: flex; flex-direction: column; }
+.sentence .main { font-size: 19px; font-weight: 700; }
+.sentence .second { font-size: 14px; font-style: italic; }
+
+.messages {
+  right: calc(var(--px) * 6);
+  top: calc(var(--px) * 100);
+  max-width: 46%;
+  display: grid;
+  gap: 6px;
+  padding: 10px 16px;
+  background: rgba(242, 239, 230, 0.95);
+  color: #1f2329;
+  border: 3px solid var(--card-edge);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+  animation: pop 0.25s ease-out;
+}
+.messages .lang-nl { color: #1f2329; }
+.messages .lang-en { color: #2a5d9c; }
+.messages .sentence.ok .main::before { content: '✓ '; color: #3f7a33; }
+.messages .sentence.warn .main { color: #a3312a; }
+.messages[hidden] { display: none; }
+
+canvas.good-icon {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------ train load card */
+
+.load-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 40px 36px 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+}
+.load-row canvas.good-icon { width: 32px; height: 32px; }
+.load-label { display: grid; gap: 4px; }
+.load-count { font-size: 28px; font-weight: 700; text-align: center; }
+.round-btn { padding: 2px 0; font-size: 24px; font-weight: 700; line-height: 1.1; }
+.round-btn:disabled { opacity: 0.35; cursor: default; }
+.dots { display: flex; flex-wrap: wrap; gap: 3px; min-height: 10px; }
+.dots .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.dots .gap { width: 5px; }
+.load .hint { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+
+.stars { font-size: 48px; color: var(--accent); letter-spacing: 6px; margin: 4px 0 10px; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); }
+#round-text { display: grid; gap: 8px; margin-bottom: 18px; }
+#round-text .lang-en { color: var(--en); }
+
+.destination canvas.good-icon { width: 24px; height: 24px; border: none; }

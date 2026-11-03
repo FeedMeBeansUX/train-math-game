@@ -64,13 +64,21 @@ Each phase ends with something playable in the browser.
 - The top-down departure animation from the original plan was dropped: the mini-map shows the train on the
   player's own track instead.
 
-### Phase 4 — Loading and delivering (first complete game loop)
-- Order list written as short Dutch sentences, names bilingual: "Breng 6 kippen naar de Boerderij (Farm)."
-- Side-view station: goods on the platform, click to load them into carriages, counter shows numeral + dots.
-- Multi-stop trip: choose the next station, unload there, see what is left.
-- Feedback: too few → "Er missen 2 kippen"; too many → leftovers stay in the train; option to return to
-  the start to fetch more. Round summary at the end.
-- **Test session with the player** before going further.
+### Phase 4 — Loading and delivering (first complete game loop) ✅
+- Each round every station (except the warehouse) orders goods that fit it: farm (chickens, hay bales),
+  bakery (flour, eggs, milk), mill (grain), market (apples, cheeses, loaves). Amount ranges per level.
+- Orders board in the side view: "Breng 6 kippen naar de Boerderij." with the English sentence below,
+  progress ("3 / 6") and a ✓ when done.
+- Loading at the warehouse: click the crates on the platform (or the + buttons) and the goods fly into the
+  wagons; click goods in the train (or −) to put them back. Each wagon is a **ten frame** (2 rows of 5,
+  capacity 10). The panel shows each count as a numeral and as dots in groups of five.
+- On arrival the station takes what it ordered (goods fly onto the platform and stay there as a pile) and
+  says what happened, in both languages: delivered / still missing ("Er missen nog 2 kippen.") / left in
+  the train, plus a hint to drive back to the warehouse for more.
+- Round summary with 1–3 stars: a star less for each extra trip from the warehouse and for leftovers.
+  "Nog een ronde" gives new orders on the same track.
+- Not done yet: a test session with the player. Unloading is automatic for now; unloading by hand
+  (subtraction practice) could become a harder setting in phase 6.
 
 ### Phase 5 — Maths engine
 - Order generator per skill: counting, addition and subtraction up to N (N configurable, default 20).

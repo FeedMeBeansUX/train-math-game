@@ -21,7 +21,7 @@
     doneText:        { nl: 'Alle stations zijn verbonden.', en: 'All stations are connected.' },
     next:            { nl: 'Volgende puzzel', en: 'Next puzzle' },
     again:           { nl: 'Nog een keer', en: 'Play again' },
-    lastLevel:       { nl: 'Dit was de laatste puzzel. De treinen komen er snel aan!', en: 'That was the last puzzle. The trains are coming soon!' },
+    lastLevel:       { nl: 'Dit was de laatste puzzel!', en: 'That was the last puzzle!' },
     language:        { nl: 'English', en: 'Nederlands' },
     drive:           { nl: 'Ga rijden!', en: "Let's drive!" },
     backToMap:       { nl: 'Naar de kaart', en: 'Back to the map' },
@@ -31,6 +31,26 @@
     atStation:       { nl: 'De trein staat bij {s}.', en: 'The train is at {s}.' },
     goingTo:         { nl: 'De trein rijdt naar {s}.', en: 'The train is going to {s}.' },
     arrived:         { nl: 'De trein is bij {s}!', en: 'The train has arrived at {s}!' },
+    // Delivery rounds
+    orders:          { nl: 'Opdrachten', en: 'Orders' },
+    orderLine:       { nl: 'Breng {n} {goods} naar {s}.', en: 'Bring {n} {goods} to {s}.' },
+    load:            { nl: 'In de trein', en: 'On the train' },
+    loadHint:        { nl: 'Klik op de spullen om ze in de trein te laden.', en: 'Click the goods to load them onto the train.' },
+    loadOnlyAtStart: { nl: 'Laden kan alleen bij {s}.', en: 'You can only load at {s}.' },
+    trainFull:       { nl: 'De trein is vol!', en: 'The train is full!' },
+    trainEmpty:      { nl: 'De trein is leeg.', en: 'The train is empty.' },
+    delivered:       { nl: '{n} {goods} afgeleverd!', en: '{n} {goods} delivered!' },
+    missingOne:      { nl: 'Er mist nog {m} {goods}.', en: '{m} more {goods} is needed.' },
+    missingMany:     { nl: 'Er missen nog {m} {goods}.', en: '{m} more {goods} are needed.' },
+    leftOne:         { nl: 'Er zit nog {k} {goods} in de trein.', en: 'There is still {k} {goods} on the train.' },
+    leftMany:        { nl: 'Er zitten nog {k} {goods} in de trein.', en: 'There are still {k} {goods} on the train.' },
+    nothingHere:     { nl: 'Hier hoeft niets heen.', en: 'Nothing needs to go here.' },
+    fetchMore:       { nl: 'Rij terug naar {s} om meer te halen.', en: 'Drive back to {s} to fetch more.' },
+    roundDone:       { nl: 'Alle opdrachten gedaan!', en: 'All orders done!' },
+    perfect:         { nl: 'Precies goed, alles in één keer!', en: 'Exactly right, all in one go!' },
+    tripsOne:        { nl: 'Je moest {k} keer extra naar {s}.', en: 'You had to go back to {s} {k} more time.' },
+    tripsMany:       { nl: 'Je moest {k} keer extra naar {s}.', en: 'You had to go back to {s} {k} more times.' },
+    newRound:        { nl: 'Nog een ronde', en: 'Another round' },
   };
 
   const NAMES = {
@@ -61,18 +81,39 @@
     return lang === 'nl' ? 'en' : 'nl';
   }
 
-  /** UI string in the current language; {name} placeholders are filled from vars. */
-  function t(key, vars) {
+  /**
+   * UI string in the current language (or language l); {name} placeholders are
+   * filled from vars. A var may be a function of the language, so one set of
+   * vars can produce both the Dutch and the English sentence.
+   */
+  function t(key, vars, l) {
+    l = l || lang;
     const s = UI[key];
-    let out = s ? s[lang] : key;
-    if (vars) for (const k in vars) out = out.split('{' + k + '}').join(vars[k]);
+    let out = s ? s[l] : key;
+    if (vars) {
+      for (const k in vars) {
+        const v = typeof vars[k] === 'function' ? vars[k](l) : vars[k];
+        out = out.split('{' + k + '}').join(v);
+      }
+    }
     return out;
   }
 
+  /** The same sentence in the current and the other language: { main, second }. */
+  function both(key, vars) {
+    return { main: t(key, vars, lang), second: t(key, vars, other()) };
+  }
+
   /** Station name with article for use in a sentence: "de Boerderij" / "the Farm". */
-  function stationPhrase(kind) {
+  function stationPhrase(kind, l) {
+    l = l || lang;
     const n = TG.themes.stationKind(kind).name;
-    return lang === 'nl' ? n.article + ' ' + n.nl : 'the ' + n.en;
+    return l === 'nl' ? n.article + ' ' + n.nl : 'the ' + n.en;
+  }
+
+  /** Name of a good, singular for 1 and plural otherwise: "kip" / "kippen". */
+  function goodsWord(good, n, l) {
+    return TG.GOODS[good][l || lang][n === 1 ? 0 : 1];
   }
 
   /** A bilingual name: { main, second } in the current/other language. */
@@ -81,5 +122,5 @@
     return { main: e[lang], second: e[other()] };
   }
 
-  TG.i18n = { UI, NAMES, t, name, stationPhrase, setLang, getLang };
+  TG.i18n = { UI, NAMES, t, both, name, stationPhrase, goodsWord, setLang, getLang, other };
 })(globalThis.TG = globalThis.TG || {});

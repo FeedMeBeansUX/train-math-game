@@ -16,7 +16,9 @@ const FILES = [
   'js/core/level.js',
   'js/core/network.js',
   'js/core/route.js',
+  'js/core/round.js',
   'js/data/themes.js',
+  'js/data/goods.js',
   'js/data/i18n.js',
   'js/data/levels.js',
 ];
@@ -212,6 +214,85 @@ test('bridge spans are reported', () => {
 test('no route when not connected', () => {
   const s = L.createLevel(TG.LEVELS[0]);
   eq(TG.route.findRoute(s, NW.analyze(s).graph, 'depot', 'farm'), null);
+});
+
+console.log('round');
+const RD = () => TG.round;
+function testRound(orders) {
+  return RD().createRound(orders.map((o, i) => Object.assign({ id: 'o' + i, delivered: 0 }, o)), 2);
+}
+test('orders: one per non-start station, goods the station wants, amounts in range', () => {
+  for (const def of TG.LEVELS) {
+    const s = L.createLevel(def);
+    const orders = RD().generateOrders(s, def, 42);
+    eq(orders.length, s.stations.length - 1, def.id);
+    for (const o of orders) {
+      const st = L.stationById(s, o.stationId);
+      assert(TG.themes.stationKind(st.kind).wants.includes(o.good), def.id + ': ' + st.kind + ' does not want ' + o.good);
+      assert(o.amount >= def.orders.min && o.amount <= def.orders.max, def.id + ': amount ' + o.amount);
+    }
+  }
+});
+test('orders are reproducible with the same seed', () => {
+  const def = TG.LEVELS[5];
+  const s = L.createLevel(def);
+  eq(RD().generateOrders(s, def, 7), RD().generateOrders(s, def, 7));
+});
+test('loading keeps goods grouped and respects capacity', () => {
+  const r = testRound([{ stationId: 'farm', good: 'chicken', amount: 3 }]);
+  RD().loadOne(r, 'apple'); RD().loadOne(r, 'chicken'); RD().loadOne(r, 'apple');
+  eq(r.load, ['apple', 'apple', 'chicken']);
+  for (let i = 0; i < 30; i++) RD().loadOne(r, 'chicken');
+  eq(r.load.length, 20, 'two wagons of ten');
+  eq(RD().loadOne(r, 'apple'), -1);
+  eq(RD().unloadOne(r, 'apple'), 1);
+  eq(RD().count(r, 'apple'), 1);
+});
+test('exact delivery completes the order, no leftovers: 3 stars', () => {
+  const r = testRound([{ stationId: 'farm', good: 'chicken', amount: 3 }]);
+  for (let i = 0; i < 3; i++) RD().loadOne(r, 'chicken');
+  RD().recordDeparture(r, true);
+  const res = RD().deliverAt(r, 'farm');
+  eq(res.deliveries, [{ good: 'chicken', given: 3, missing: 0, left: 0 }]);
+  eq(res.removed.length, 3);
+  assert(RD().isComplete(r));
+  eq(RD().stars(r), 3);
+});
+test('too few: missing is reported and the order stays open', () => {
+  const r = testRound([{ stationId: 'farm', good: 'chicken', amount: 5 }]);
+  for (let i = 0; i < 3; i++) RD().loadOne(r, 'chicken');
+  const res = RD().deliverAt(r, 'farm');
+  eq(res.deliveries[0], { good: 'chicken', given: 3, missing: 2, left: 0 });
+  assert(!RD().isComplete(r));
+  // Fetch two more and deliver again
+  RD().loadOne(r, 'chicken'); RD().loadOne(r, 'chicken');
+  eq(RD().deliverAt(r, 'farm').deliveries[0], { good: 'chicken', given: 2, missing: 0, left: 0 });
+  assert(RD().isComplete(r));
+});
+test('too many: the rest stays in the train and costs a star', () => {
+  const r = testRound([{ stationId: 'farm', good: 'chicken', amount: 2 }, { stationId: 'bakery', good: 'flour', amount: 1 }]);
+  for (let i = 0; i < 4; i++) RD().loadOne(r, 'chicken');
+  RD().loadOne(r, 'flour');
+  RD().recordDeparture(r, true);
+  eq(RD().deliverAt(r, 'farm').deliveries[0], { good: 'chicken', given: 2, missing: 0, left: 2 });
+  RD().deliverAt(r, 'bakery');
+  assert(RD().isComplete(r));
+  eq(RD().leftovers(r), [{ good: 'chicken', n: 2 }]);
+  eq(RD().stars(r), 2);
+});
+test('removed indices point at the delivered items', () => {
+  const r = testRound([{ stationId: 'bakery', good: 'flour', amount: 2 }]);
+  ['apple', 'flour', 'flour', 'flour', 'egg'].forEach(g => RD().loadOne(r, g));
+  const res = RD().deliverAt(r, 'bakery');
+  eq(res.removed.sort(), [2, 3]);
+  eq(r.load, ['apple', 'flour', 'egg']);
+});
+test('every station kind in the levels can order something, and goods have names', () => {
+  for (const def of TG.LEVELS) for (const st of def.stations.slice(1)) {
+    const wants = TG.themes.stationKind(st.kind).wants;
+    assert(wants.length > 0, st.kind);
+    for (const g of wants) assert(TG.GOODS[g] && TG.GOODS[g].nl.length === 2 && TG.GOODS[g].en.length === 2, g);
+  }
 });
 
 console.log('levels');

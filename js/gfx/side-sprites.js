@@ -568,6 +568,62 @@
     });
   }
 
+
+  // ================================================================ goods (8x8 icons)
+
+  const GOOD_ICONS = {
+    apple: [['....gl..', '...g....', '.rRrrrd.', 'rRRrrrrd', 'rRrrrrrd', 'rrrrrrrd', '.rrrrdd.', '..dddd..'],
+      { r: '#c8382c', R: '#e86a5a', d: '#8a2018', g: '#5a3a20', l: '#5f9143' }],
+    chicken: [['.....rr.', '....www.', '....wkwy', 'ww.wwww.', 'wwwwwww.', 'wWwwwww.', '.wWWWw..', '..y..y..'],
+      { w: '#f4f1ea', W: '#c9c4b8', r: '#d23a2c', k: '#1a1a1a', y: '#e0a030' }],
+    flour: [['..t..t..', '...tt...', '..wwww..', '.wwwwww.', 'wwwwwwww', 'wwFFwwwW', 'wwwwwwwW', '.WWWWWW.'],
+      { t: '#8a6a48', w: '#efe9da', W: '#c8bfaa', F: '#7a9ac0' }],
+    grain: [['..t..t..', '...tt...', '..wwww..', '.wwwwww.', 'wwwwwwww', 'wwFFwwwW', 'wwwwwwwW', '.WWWWWW.'],
+      { t: '#5a3a20', w: '#c9a46c', W: '#9c7c4c', F: '#f0d68a' }],
+    egg: [['...ww...', '..wwww..', '.wwHwww.', '.wHwwww.', 'wwwwwwwW', 'wwwwwwwW', '.wwwwWW.', '..WWWW..'],
+      { w: '#f0e2c4', H: '#fffaf0', W: '#cdb894' }],
+    milk: [['..dddd..', '...gg...', '..gggg..', '.gHgggd.', '.gHgggd.', '.gggggd.', '.dddddd.', '..d..d..'],
+      { g: '#b8bcc2', H: '#e6e9ec', d: '#6d7178' }],
+    hay: [['........', 'yyyyyyyy', 'yYyyyYyy', 'yyyyyyyy', 'bbbbbbbb', 'yyyyyyyy', 'yyYyyyYy', 'dddddddd'],
+      { y: '#d9b85a', Y: '#f0d68a', b: '#8a6a3a', d: '#a8893c' }],
+    cheese: [['........', '..yyyy..', '.yYyyyy.', 'yyyyyyyy', 'oooooooo', 'yyyyyyyy', '.dyyyyd.', '..dddd..'],
+      { y: '#f0c850', Y: '#fbe59a', o: '#d9a530', d: '#b88a28' }],
+    bread: [['........', '..bbbb..', '.bBbBbb.', 'bBbBbBbb', 'bbbbbbbb', 'dbbbbbbd', '.dddddd.', '........'],
+      { b: '#c98a3e', B: '#f0c987', d: '#8a5426' }],
+    bricks: [['........', 'rrrmrrrr', 'mmmmmmmm', 'rmrrrrmr', 'mmmmmmmm', 'rrrmrrrr', 'mmmmmmmm', 'rmrrrrmr'],
+      { r: '#a8473a', m: '#d9cfc0' }],
+    planks: [['........', 'pppppppp', 'dddddddd', 'PPPPPPPP', 'dddddddd', 'pppppppp', 'dddddddd', '........'],
+      { p: '#c9a46c', P: '#b08a54', d: '#6b4a2f' }],
+    stones: [['........', '...gg...', '..gGgg..', '.ggggdg.', 'gGggdggd', 'gggddggd', '.dddddd.', '........'],
+      { g: '#9a958c', G: '#c4bfb5', d: '#6a665f' }],
+    tyre: [['..kkkk..', '.kkkkkk.', 'kkk..kkk', 'kk.gg.kk', 'kk.gg.kk', 'kkk..kkk', '.kkkkkk.', '..kkkk..'],
+      { k: '#2a2a2c', g: '#9a9a9a' }],
+    fuel: [['.rrrrrr.', 'rRrrrrrd', 'dddddddd', 'rRrrrrrd', 'rRrrrrrd', 'dddddddd', 'rRrrrrrd', '.rrrrrr.'],
+      { r: '#c4483d', R: '#e87a6a', d: '#7e241f' }],
+  };
+
+  function goodIcon(good) {
+    const [rows, pal] = GOOD_ICONS[good];
+    return makeSprite(8, 8, set => {
+      rows.forEach((row, y) => {
+        if (row.length !== 8) throw new Error('Icon ' + good + ' row ' + y + ' has wrong length');
+        for (let x = 0; x < 8; x++) if (row[x] !== '.') set(x, y, pal[row[x]]);
+      });
+    });
+  }
+
+  /** Wooden crate the warehouse keeps goods in. */
+  function crate() {
+    return makeSprite(28, 14, set => {
+      set.rect(0, 0, 27, 13, '#6b4a2f');
+      for (let y = 1; y <= 12; y++) for (let x = 1; x <= 26; x++) set(x, y, y % 4 === 0 ? '#7a5a3a' : '#a07a50');
+      set.rect(1, 1, 26, 1, '#b8936a');
+      set.rect(1, 1, 2, 12, '#7a5a3a');
+      set.rect(25, 1, 26, 12, '#7a5a3a');
+      set.rect(0, 13, 27, 13, '#4a3324');
+    });
+  }
+
   // ================================================================ registry
 
   const cache = new Map();
@@ -594,6 +650,9 @@
     foreground: () => get('fg', foreground),
     haybale: () => get('hay', haybale),
     puff: r => get('puff' + r, () => puff(Math.max(1, r))),
+    goodIcon: g => get('good:' + g, () => goodIcon(g)),
+    crate: () => get('crate', crate),
+    GOOD_ICONS,
     bush: v => get('bush' + (v % 3), () => bush(300 + (v % 3))),
   };
 })(globalThis.TG = globalThis.TG || {});

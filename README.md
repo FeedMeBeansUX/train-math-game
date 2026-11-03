@@ -6,8 +6,8 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–3. Build the track (6 farm puzzles), then drive the train between the
-stations in a side view with a mini-map. Loading goods (the maths part) is next.
+**Current state:** phases 0–4. Build the track (6 farm puzzles), then play delivery rounds: read the
+orders, load the right number of goods at the warehouse, and drive the train to each station.
 
 ## Playing
 
@@ -28,8 +28,10 @@ stations in a side view with a mini-map. Loading goods (the maths part) is next.
 | Take track back | right click (or `Delete` while hovering) |
 | Put the piece down | `Esc` |
 
-After solving a puzzle press **Ga rijden!** and pick a station: the train finds its own way over
-your track. **Naar de kaart** goes back to the puzzle.
+After solving a puzzle press **Ga rijden!**. The orders board says what each station needs. At the
+warehouse, click the crates on the platform (or **+**) to load goods; click goods in the train (or **−**)
+to put them back. Then pick a station: the train finds its own way over your track and the station takes
+what it ordered. Deliver everything for up to three stars. **Naar de kaart** goes back to the puzzle.
 
 Bridges can only be placed on water; the other pieces only on land.
 Yellow blinking dots show where the track can continue; red dots show ends
@@ -45,8 +47,8 @@ the file system.
 ```
 index.html          page shell, loads the scripts in order
 css/style.css       layout and UI styling
-js/core/            pure game logic (no DOM): track pieces, level state, network analysis, routing
-js/data/            texts (nl/en), themes and station kinds, levels
+js/core/            pure game logic (no DOM): track pieces, level state, network, routing, delivery rounds
+js/data/            texts (nl/en), themes and station kinds, goods, levels
 js/gfx/             pixel-art sprites (generated in code), top-down and side-view renderers, mini-map
 js/ui/              screens (puzzle, driving) and input handling
 js/main.js          start-up

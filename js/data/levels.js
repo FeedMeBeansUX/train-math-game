@@ -1,5 +1,6 @@
 /*
- * Hand-made puzzle levels (phase 2). Format: see js/core/level.js.
+ * Hand-made puzzle levels. Format: see js/core/level.js.
+ * orders: range for the amounts stations ask for in a delivery round (js/core/round.js).
  * Map chars: '.' grass, 'f' flowers (buildable), '~' water (bridges only), 'T' tree, 'R' rock.
  * Every level carries one known solution; tests/run-tests.js checks it.
  * Curve rotations: 0 = N-E, 1 = E-S, 2 = S-W, 3 = W-N.
@@ -24,6 +25,7 @@
     {
       id: 'farm-1',
       theme: 'farm',
+      orders: { min: 2, max: 5 },
       map: [
         'TT..........T.TT',
         'T.....f.........',
@@ -46,6 +48,7 @@
     {
       id: 'farm-2',
       theme: 'farm',
+      orders: { min: 2, max: 6 },
       map: [
         'TTT....TT.....TT',
         'T.....f.........',
@@ -72,6 +75,7 @@
     {
       id: 'farm-3',
       theme: 'farm',
+      orders: { min: 3, max: 8 },
       map: [
         'T.T.....TT....TT',
         '...f..........T.',
@@ -104,6 +108,7 @@
     {
       id: 'farm-river',
       theme: 'farm',
+      orders: { min: 3, max: 9 },
       map: [
         'TT.....~~....TTT',
         'T......~~.......',
@@ -134,6 +139,7 @@
     {
       id: 'farm-4',
       theme: 'farm',
+      orders: { min: 2, max: 8 },
       map: [
         'TT.....TTT....TT',
         'T.........f.....',
@@ -166,6 +172,7 @@
     {
       id: 'farm-5',
       theme: 'farm',
+      orders: { min: 2, max: 7 },
       map: [
         'TTT.....TTT..TTT',
         'T...f...........',

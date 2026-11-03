@@ -24,13 +24,21 @@
 
   const drive = new TG.DriveScreen({
     stage: $('drive-stage'),
+    board: $('drive-board'),
     canvas: $('side'),
     signs: $('signs'),
+    orders: $('orders'),
+    messages: $('messages'),
     minimap: $('minimap'),
     status: $('drive-status'),
+    load: $('load'),
     whereTo: $('whereto-heading'),
-    mapHeading: $('map-heading'),
     destinations: $('destinations'),
+    roundDone: $('round-done'),
+    roundTitle: $('round-title'),
+    roundStars: $('round-stars'),
+    roundText: $('round-text'),
+    btnNewRound: $('btn-new-round'),
   });
 
   // Handy for debugging and automated browser tests
@@ -86,6 +94,10 @@
     $('btn-map').textContent = i18n.t('backToMap');
     $('btn-next-drive').textContent = i18n.t('next');
     $('btn-next-drive').hidden = isLast();
+    $('btn-new-round').textContent = i18n.t('newRound');
+    $('btn-round-next').textContent = i18n.t('next');
+    $('btn-round-next').hidden = isLast();
+    $('btn-round-map').textContent = i18n.t('backToMap');
     $('done-text').textContent = i18n.t('doneText') + (isLast() ? ' ' + i18n.t('lastLevel') : '');
     $('btn-next').hidden = isLast();
 
@@ -121,6 +133,9 @@
   $('btn-drive').addEventListener('click', showDrive);
   $('btn-drive-panel').addEventListener('click', showDrive);
   $('btn-map').addEventListener('click', () => { showBuild(); refreshTexts(); });
+  $('btn-round-map').addEventListener('click', () => { showBuild(); refreshTexts(); });
+  $('btn-round-next').addEventListener('click', nextLevel);
+  $('btn-new-round').addEventListener('click', () => drive.newRound());
   $('btn-lang').addEventListener('click', () => {
     i18n.setLang(i18n.getLang() === 'nl' ? 'en' : 'nl');
     build.buildLabels();
