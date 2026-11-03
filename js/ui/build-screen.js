@@ -55,6 +55,8 @@
       this.selected = this.types[0] || null;
       this.solved = false;
       this.removals = 0; // pieces taken back: fewer means more puzzle stars
+      this.lap = null;
+      this.analysis = null;
       this.particles = [];
       this.analysis = NW.analyze(this.state);
       this.buildLabels();
@@ -73,7 +75,9 @@
     }
 
     changed() {
+      const before = this.analysis ? this.analysis.connectedStations.size : 0;
       this.analysis = NW.analyze(this.state);
+      if (this.analysis.connectedStations.size > before && !this.analysis.allConnected) TG.sound.play('connect');
       if (this.selected && !(this.state.inventory[this.selected] > 0)) this.selected = null;
       this.refreshPanel();
       if (this.analysis.allConnected && !this.solved) {
@@ -215,6 +219,7 @@
       if (!this.selected) return;
       const type = this.selected;
       this.rotations[type] = T.normalizeRot(type, this.rotations[type] + step);
+      TG.sound.play('rotate');
       this.refreshPanel();
     }
 
@@ -228,7 +233,10 @@
       });
       cv.addEventListener('mouseleave', () => { this.hover = null; });
       cv.addEventListener('mousedown', e => {
-        if (this.solved) return;
+        if (this.solved) {
+          if (this.lap && !this.lap.done) this.finishLap(); // click skips the victory lap
+          return;
+        }
         const tile = this.renderer.tileAt(e.clientX, e.clientY);
         if (!tile) return;
         if (e.button === 0) this.primary(tile);
@@ -254,17 +262,26 @@
     primary(tile) {
       const c = L.cellAt(this.state, tile.x, tile.y);
       if (c) {
-        if (L.rotateAt(this.state, tile.x, tile.y)) this.changed();
+        if (L.rotateAt(this.state, tile.x, tile.y)) {
+          TG.sound.play('rotate');
+          this.changed();
+        } else {
+          TG.sound.play('bad');
+        }
         return;
       }
       if (this.selected && L.place(this.state, tile.x, tile.y, this.selected, this.rotations[this.selected])) {
+        TG.sound.play('place');
         this.changed();
+      } else if (this.selected) {
+        TG.sound.play('bad');
       }
     }
 
     secondary(tile) {
       if (L.removeAt(this.state, tile.x, tile.y)) {
         this.removals++;
+        TG.sound.play('remove');
         this.changed();
       }
       else if (!L.cellAt(this.state, tile.x, tile.y) && this.selected) {
@@ -299,8 +316,72 @@
         });
       }
       this.hover = null;
-      const result = { removals: this.removals, pieces: this.def.solution.length };
-      setTimeout(() => this.callbacks.onSolved && this.callbacks.onSolved(result), 900);
+      this.result = { removals: this.removals, pieces: this.def.solution.length };
+      this.startLap();
+    }
+
+    /**
+     * Victory lap: a little train drives over the finished track from the start
+     * to every station (nearest first). Clicking skips it. Then the "well done" dialog.
+     */
+    startLap() {
+      const st = this.state;
+      const left = st.stations.slice(1);
+      let from = st.stations[0];
+      const routes = [];
+      while (left.length) {
+        let best = null, bestI = -1;
+        left.forEach((s, i) => {
+          const r = TG.route.findRoute(st, this.analysis.graph, from.id, s.id);
+          if (r && (!best || r.length < best.length)) { best = r; bestI = i; }
+        });
+        if (!best) break;
+        routes.push(best);
+        from = left.splice(bestI, 1)[0];
+      }
+      const total = routes.reduce((n, r) => n + r.length, 0);
+      this.lap = { routes, i: 0, d: 0, pause: 0.5, speed: Math.max(3.2, total / 7) };
+      TG.sound.play('whistle');
+    }
+
+    updateLap(dt) {
+      const lap = this.lap;
+      if (lap.pause > 0) {
+        lap.pause -= dt;
+        return;
+      }
+      const r = lap.routes[lap.i];
+      if (!r) return this.finishLap();
+      const before = lap.d;
+      lap.d += lap.speed * dt;
+      if (Math.floor(before * 2.5) !== Math.floor(lap.d * 2.5)) TG.sound.play('chuff', { strength: 0.6 });
+      if (lap.d >= r.length) {
+        lap.d = 0;
+        lap.i++;
+        lap.pause = 0.35;
+        TG.sound.play('connect');
+        if (lap.i >= lap.routes.length) lap.pause = 0.6;
+      }
+    }
+
+    finishLap() {
+      if (!this.lap || this.lap.done) return;
+      this.lap.done = true;
+      TG.sound.play('solved');
+      if (this.callbacks.onSolved) this.callbacks.onSolved(this.result);
+    }
+
+    /** Positions of the locomotive and two wagons on the lap, in tile units. */
+    lapTrain() {
+      const lap = this.lap;
+      if (!lap || lap.done) return null;
+      const r = lap.routes[Math.min(lap.i, lap.routes.length - 1)];
+      if (!r) return null;
+      const d = lap.i >= lap.routes.length ? r.length : lap.d;
+      return [0, 0.72, 1.34].map((back, k) => {
+        const p = TG.route.pointAt(r, Math.max(0, d - back));
+        return { kind: k === 0 ? 'loco' : 'wagon', index: k, x: p.x, y: p.y, heading: p.heading };
+      });
     }
 
     frame(t) {
@@ -315,17 +396,48 @@
           p.vx *= 0.99;
         }
         this.particles = this.particles.filter(p => p.y < h + 4);
+        if (this.lap && !this.lap.done) this.updateLap(dt);
         this.renderer.draw({
           analysis: this.analysis,
           hover: this.solved ? null : this.hover,
           ghost: this.selected ? { type: this.selected, rot: this.rotations[this.selected] } : null,
           particles: this.particles,
+          train: this.lapTrain(),
           time: t / 1000,
         });
       }
     }
   }
 
+  /** Stars that pop in one after another (CSS animation): n earned out of 3. */
+  function fillStars(box, n) {
+    box.textContent = '';
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement('span');
+      s.className = 'star' + (i < n ? ' on' : '');
+      s.textContent = i < n ? '★' : '☆';
+      s.style.animationDelay = (0.25 + i * 0.35) + 's';
+      box.append(s);
+    }
+    box.setAttribute('aria-label', n + ' / 3');
+  }
+
+  /** Confetti particles falling from the top of an area `w` wide. */
+  function confetti(w, count) {
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      out.push({
+        x: Math.random() * w,
+        y: -Math.random() * 100,
+        vx: (Math.random() - 0.5) * 50,
+        vy: 50 + Math.random() * 80,
+        size: Math.random() < 0.3 ? 3 : 2,
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      });
+    }
+    return out;
+  }
+
   TG.BuildScreen = BuildScreen;
-  TG.ui = { nameEl };
+  TG.ui = { nameEl, fillStars, confetti };
 })(globalThis.TG = globalThis.TG || {});

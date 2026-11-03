@@ -9,11 +9,13 @@
   const KEY = 'treinspel.settings';
   const MAX_OPTIONS = [10, 20, 50, 100];
   const SKILLS = ['count', 'add', 'subtract', 'multiply', 'divide'];
+  const STYLES = ['natural', 'bright', 'warm', 'muted']; // colour styles (CSS filters on the canvases)
   const DEFAULTS = {
     maxNumber: 20,
     skills: { count: true, add: true, subtract: true, multiply: false, divide: false },
     adaptive: true,       // levels follow the player's results (TG.progress)
     manualUnload: false,  // the player decides how many goods come off at each station
+    style: 'natural',
   };
 
   /** Make any (possibly old or broken) settings object valid. */
@@ -23,7 +25,9 @@
       skills: Object.assign({}, DEFAULTS.skills),
       adaptive: DEFAULTS.adaptive,
       manualUnload: DEFAULTS.manualUnload,
+      style: DEFAULTS.style,
     };
+    if (s && STYLES.includes(s.style)) out.style = s.style;
     if (s && MAX_OPTIONS.includes(s.maxNumber)) out.maxNumber = s.maxNumber;
     if (s && s.skills) for (const k of SKILLS) if (typeof s.skills[k] === 'boolean') out.skills[k] = s.skills[k];
     if (s && typeof s.adaptive === 'boolean') out.adaptive = s.adaptive;
@@ -49,5 +53,5 @@
     return current;
   }
 
-  TG.settings = { KEY, MAX_OPTIONS, SKILLS, DEFAULTS, normalize, get, set };
+  TG.settings = { KEY, MAX_OPTIONS, SKILLS, STYLES, DEFAULTS, normalize, get, set };
 })(globalThis.TG = globalThis.TG || {});

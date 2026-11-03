@@ -6,12 +6,13 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–7. Build the track (6 hand-made puzzles, then endless generated puzzles that
+**Current state:** phases 0–8. Build the track (6 hand-made puzzles, then endless generated puzzles that
 match the player's level), then play delivery rounds: read the orders, load the right number of goods at
 the warehouse, and drive the train to each station. Each round practises one skill: counting, addition,
 subtraction, multiplication (passenger carriages) or division (share parcels fairly). Four themes — farm,
 construction, racing and town — unlock with the stars you earn. Difficulty adapts to the results; parents
-can set the largest number, the skills, unloading by hand, and see progress with ⚙.
+can set the largest number, the skills, unloading by hand and a colour style, and see progress with ⚙.
+Sound effects can be switched off with 🔊.
 
 ## Playing
 
@@ -58,6 +59,7 @@ js/core/            pure game logic (no DOM): track, level state, network, routi
                     maths engine, settings, progress (adaptive levels), puzzle generator
 js/data/            texts (nl/en), themes and station kinds, goods, levels
 js/gfx/             pixel-art sprites (generated in code), top-down and side-view renderers, mini-map
+js/audio/           sound effects (Web Audio, generated in code)
 js/ui/              screens (puzzle, driving) and input handling
 js/main.js          start-up
 tests/run-tests.js  tests for js/core and the level data

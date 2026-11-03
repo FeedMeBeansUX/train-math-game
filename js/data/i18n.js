@@ -104,6 +104,13 @@
     resetProgress:   { nl: 'Voortgang wissen', en: 'Reset progress' },
     confirmReset:    { nl: 'Alle voortgang en sterren wissen?', en: 'Erase all progress and stars?' },
     notPlayed:       { nl: 'nog niet gespeeld', en: 'not played yet' },
+    colorStyle:      { nl: 'Kleurstijl', en: 'Colour style' },
+    style_natural:   { nl: 'Natuurlijk', en: 'Natural' },
+    style_bright:    { nl: 'Helder', en: 'Bright' },
+    style_warm:      { nl: 'Warm', en: 'Warm' },
+    style_muted:     { nl: 'Rustig', en: 'Muted' },
+    soundOn:         { nl: 'Geluid aan', en: 'Sound on' },
+    soundOff:        { nl: 'Geluid uit', en: 'Sound off' },
     save:            { nl: 'Opslaan', en: 'Save' },
     cancel:          { nl: 'Annuleren', en: 'Cancel' },
   };

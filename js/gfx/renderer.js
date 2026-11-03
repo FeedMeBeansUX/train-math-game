@@ -65,6 +65,7 @@
      *   hover: {x, y} | null,   tile under the mouse
      *   ghost: {type, rot} | null, piece to preview at the hover tile
      *   particles: [],          celebration confetti
+     *   train: [{kind, index, x, y, heading}] | null, the victory-lap train (tile units)
      *   time,                   seconds, for animation
      * }
      */
@@ -119,6 +120,18 @@
           ctx.fillRect(px, py, TILE, TILE);
         }
         this.outline(ctx, px, py, 'rgba(255,255,255,0.8)');
+      }
+
+      // Victory lap train
+      if (view.train) {
+        for (const car of view.train.slice().reverse()) {
+          const img = car.kind === 'loco' ? S.topTrain('loco') : S.topTrain('wagon', car.index);
+          ctx.save();
+          ctx.translate(Math.round(car.x * TILE), Math.round(car.y * TILE));
+          ctx.rotate(car.heading);
+          ctx.drawImage(img, -Math.round(img.width / 2), -Math.round(img.height / 2));
+          ctx.restore();
+        }
       }
 
       // Confetti

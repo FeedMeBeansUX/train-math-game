@@ -14,6 +14,7 @@
         <span id="star-count" class="star-count">★ 0</span>
         <select id="level-select" aria-label="Puzzel"></select>
         <button type="button" id="btn-lang" class="btn small">English</button>
+        <button type="button" id="btn-sound" class="btn small" aria-pressed="true">🔊</button>
         <button type="button" id="btn-settings" class="btn small" aria-label="Instellingen">⚙</button>
       </div>
     </header>
@@ -102,6 +103,10 @@
           <div id="difficulty-options" class="choice-col"></div>
         </fieldset>
         <fieldset>
+          <legend id="style-legend"></legend>
+          <div id="style-options" class="choice-row"></div>
+        </fieldset>
+        <fieldset>
           <legend id="progress-legend"></legend>
           <div id="progress-table" class="progress-table"></div>
           <p id="progress-totals" class="hint"></p>
@@ -155,6 +160,7 @@
   <script src="js/data/goods.js"></script>
   <script src="js/data/i18n.js"></script>
   <script src="js/data/levels.js"></script>
+  <script src="js/audio/sound.js"></script>
   <script src="js/gfx/sprites.js"></script>
   <script src="js/gfx/renderer.js"></script>
   <script src="js/gfx/side-sprites.js"></script>

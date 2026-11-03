@@ -133,9 +133,17 @@ Each phase ends with something playable in the browser.
   needed. Hand-made puzzles stay on the farm.
 - Generic station buildings show a sign with the station's main good, so every station is recognisable.
 
-### Phase 8 — Art and sound
-- Try out art styles (palette, tile size, amount of detail) side by side and pick one, then go over all sprites.
-- Sound effects (whistle, loading, success), animations, celebrations.
+### Phase 8 — Art and sound ✅
+- **Sound effects** synthesised with the Web Audio API (`js/audio/sound.js`; no audio files, works offline):
+  laying, rotating and removing track, a ding when a station connects, a steam whistle on departure,
+  chuffing that follows the speed, a steam hiss on arrival, pops when loading, unloading and passengers
+  boarding, a delivery chime, a gentle "uh-oh" for mistakes, a ding per star, fanfares for a solved
+  puzzle, a level-up and a new theme. Mute button (🔊) in the top bar, saved in the browser.
+- **Celebrations**: after solving a puzzle a little train drives a victory lap over the new track to every
+  station (click to skip); stars pop in one by one; confetti after a finished round.
+- **Art**: four colour styles as a parent setting (natural, bright, warm, muted — CSS filters on the pixel
+  art, with live preview); a cleaner junction piece (sleepers only under the main line); wagons sway a
+  little while driving; top-down locomotive and wagon sprites for the victory lap.
 
 ### Phase 9 — Switches and ordering puzzles
 - Switch pieces the player sets before departure; deliveries that must happen in a set order.

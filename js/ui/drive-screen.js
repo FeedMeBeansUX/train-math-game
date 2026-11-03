@@ -185,6 +185,7 @@
       const boarding = this.round.mode === 'passengers' && this.current === this.startId ? this.boardPassengers() : 0;
       this.trip = { route, to: toId, D, worldEnd, motion: motion(D), t: -(WHISTLE + boarding), lastPos: 0 };
       for (let i = 0; i < 6; i++) this.puff(this.front + CHIMNEY_DX, 0, 1.4);
+      TG.sound.play('whistle');
       this.buildSigns();
       this.refresh();
     }
@@ -197,7 +198,10 @@
       for (let i = 0; i < n; i++) {
         this.pendingLoad.passenger = (this.pendingLoad.passenger || 0) + 1;
         const from = this.renderer.pileItemPos(0, 0, Math.min(25, waitingBefore - 1 - i), false, 'passenger');
-        this.fly('passenger', from, this.renderer.slotPos(this.front, before + i), -i * 0.08, () => { this.pendingLoad.passenger--; });
+        this.fly('passenger', from, this.renderer.slotPos(this.front, before + i), -i * 0.08, () => {
+          this.pendingLoad.passenger--;
+          TG.sound.play('pop');
+        });
       }
       const left = RD.waitingPassengers(this.round);
       if (n > 0) this.messages.push(Object.assign(i18n.both(n === 1 ? 'boardedOne' : 'boardedMany', { n }), { kind: 'ok' }));
@@ -212,6 +216,7 @@
       this.current = this.trip.to;
       this.trip = null;
       this.arrivedHere = true;
+      TG.sound.play('hiss');
       this.idleScene();
       if (this.current === this.startId) {
         this.messages = [i18n.both('loadHint')];
@@ -252,6 +257,7 @@
       const res = RD.unloadAt(this.round, u.stationId, u.n);
       if (!res.ok) {
         this.messages = [Object.assign(i18n.both(res.reason === 'tooMany' ? 'tooMany' : 'tooFew'), { kind: 'warn' })];
+        TG.sound.play('mistake');
         if (this.plan.kind === 'divide') this.messages.push(i18n.both('fairHint'));
         this.refresh();
         return;
@@ -272,12 +278,17 @@
         const p = Math.min(goodsHere.indexOf(good), MAX_PILES - 1);
         const k = this.deliveredCount(this.current, good) - this.pendingPile[key];
         const to = this.renderer.pileItemPos(0, p, Math.min(good === 'passenger' ? 25 : 9, k), false, good);
-        this.fly(good, from, to, -i * 0.12, () => { this.pendingPile[key]--; });
+        this.fly(good, from, to, -i * 0.12, () => {
+          this.pendingPile[key]--;
+          TG.sound.play('pop');
+        });
       });
       this.busy = removed.length > 0;
       this.afterFlights = () => {
         this.busy = false;
         this.messages = this.deliveryMessages(deliveries);
+        if (deliveries.some(dl => dl.given > 0)) TG.sound.play('deliver');
+        if (deliveries.some(dl => dl.missing > 0)) setTimeout(() => TG.sound.play('mistake'), 450);
         this.refresh();
         if (RD.isComplete(this.round)) setTimeout(() => this.showRoundDone(), 900);
       };
@@ -316,6 +327,7 @@
     /** Passenger rounds: add or remove carriages at the start station. */
     setWagons(n) {
       if (!this.atStart() || !RD.setWagons(this.round, n, TG.maths.MAX_COACHES)) return;
+      TG.sound.play('click');
       this.messages = [];
       this.idleScene();
       this.refresh();
@@ -330,12 +342,14 @@
       if (!this.atStart()) {
         const startKind = L.stationById(this.state, this.startId).kind;
         this.messages = [i18n.both('loadOnlyAtStart', { s: l => i18n.stationPhrase(startKind, l) })];
+        TG.sound.play('bad');
         this.refresh();
         return;
       }
       const idx = RD.loadOne(this.round, good);
       if (idx < 0) {
         this.messages = [Object.assign(i18n.both('trainFull'), { kind: 'warn' })];
+        TG.sound.play('bad');
         this.refresh();
         return;
       }
@@ -343,6 +357,7 @@
       this.pendingLoad[good] = (this.pendingLoad[good] || 0) + 1;
       const p = Math.min(this.supplyGoods().indexOf(good), MAX_PILES - 1);
       const from = this.renderer.pileItemPos(0, p, 1, true);
+      TG.sound.play('load');
       this.fly(good, from, this.renderer.slotPos(this.front, idx), 0, () => { this.pendingLoad[good]--; });
       this.refresh();
     }
@@ -353,6 +368,7 @@
       if (idx < 0) return;
       this.messages = [];
       const p = Math.max(0, Math.min(this.supplyGoods().indexOf(good), MAX_PILES - 1));
+      TG.sound.play('unload');
       this.fly(good, this.renderer.slotPos(this.front, idx), this.renderer.pileItemPos(0, p, 1, true), 0, null);
       this.refresh();
     }
@@ -438,6 +454,11 @@
       this.puffTimer -= dt;
       if (this.puffTimer <= 0) {
         this.puff(this.front + CHIMNEY_DX, this.speed, this.speed > 0 ? 1 : 0.5);
+        // Chuff with every puff while moving (not too often at full speed)
+        if (this.speed > 5 && this.lastTime - (this.lastChuff || 0) > 130) {
+          this.lastChuff = this.lastTime;
+          TG.sound.play('chuff', { strength: 0.6 + Math.min(0.5, this.speed / 600) });
+        }
         this.puffTimer = this.speed > 0 ? Math.max(0.07, 0.35 - this.speed / 900) : 0.9;
       }
       for (const p of this.smoke) {
@@ -448,6 +469,13 @@
         p.a -= dt * 0.38;
       }
       this.smoke = this.smoke.filter(p => p.a > 0);
+      // Confetti after a finished round (screen coordinates)
+      for (const p of this.confetti || []) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.99;
+      }
+      if (this.confetti) this.confetti = this.confetti.filter(p => p.y < SS.H + 4);
     }
 
     flyerPositions() {
@@ -481,6 +509,8 @@
         cargo: this.cargoView(),
         piles: this.sceneStations.map(id => this.pilesFor(id)),
         flyers: this.flyerPositions(),
+        confetti: this.confetti,
+        speed: this.speed,
       });
       const tr = this.trip;
       const dist = tr ? (tr.lastPos / tr.D) * tr.route.length : 0;
@@ -764,7 +794,7 @@
       const d = this.dom;
       const n = RD.stars(this.round);
       d.roundTitle.textContent = i18n.t('roundDone');
-      d.roundStars.textContent = '★'.repeat(n) + '☆'.repeat(3 - n);
+      TG.ui.fillStars(d.roundStars, n);
       d.roundStars.setAttribute('aria-label', n + ' / 3');
       d.roundText.textContent = '';
       const startKind = L.stationById(this.state, this.startId).kind;
@@ -783,7 +813,11 @@
       const skill = this.plan.skill;
       const before = TG.progress.level(skill);
       const after = TG.progress.record(skill, n);
-      if (after > before && TG.settings.get().adaptive) d.roundText.append(sentenceEl(i18n.both('levelUp'), 'ok'));
+      const levelUp = after > before && TG.settings.get().adaptive;
+      if (levelUp) d.roundText.append(sentenceEl(i18n.both('levelUp'), 'ok'));
+      TG.sound.stars(n);
+      if (levelUp) setTimeout(() => TG.sound.play('levelup'), 400 + n * 350);
+      this.confetti = TG.ui.confetti(SS.W, 120);
       if (this.callbacks.onStars) this.callbacks.onStars();
       d.roundDone.hidden = false;
       d.btnNewRound.focus();

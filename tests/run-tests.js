@@ -28,6 +28,7 @@ const FILES = [
   // Sprite modules only define drawing functions at load time, so their data can be checked here
   'js/gfx/sprites.js',
   'js/gfx/side-sprites.js',
+  'js/audio/sound.js',
 ];
 
 const context = vm.createContext({ console });
@@ -578,6 +579,18 @@ test('the generator makes valid puzzles in every theme', () => {
       for (const st of def.stations.slice(1)) assert(TG.themes.THEMES[t].stations.includes(st.kind), st.kind + ' not in ' + t);
     }
   }
+});
+
+console.log('sound and style');
+test('colour style setting: default natural, unknown values ignored', () => {
+  eq(TG.settings.normalize(null).style, 'natural');
+  eq(TG.settings.normalize({ style: 'warm' }).style, 'warm');
+  eq(TG.settings.normalize({ style: 'neon' }).style, 'natural');
+});
+test('sound module loads without a browser and ignores calls when audio is unavailable', () => {
+  assert(TG.sound && TG.sound.EFFECTS.whistle && TG.sound.EFFECTS.chuff && TG.sound.EFFECTS.star);
+  TG.sound.play('whistle');
+  TG.sound.play('no-such-sound');
 });
 
 console.log('levels');

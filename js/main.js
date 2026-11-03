@@ -95,9 +95,11 @@
     const stars = TG.progress.puzzleStars(result.removals, result.pieces);
     const before = TG.progress.level('puzzle');
     const after = TG.progress.record('puzzle', stars);
-    $('done-stars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    $('done-stars').setAttribute('aria-label', stars + ' / 3');
-    $('done-text').textContent = i18n.t('doneText') + (after > before && TG.settings.get().adaptive ? ' ' + i18n.t('levelUp') : '');
+    const levelUp = after > before && TG.settings.get().adaptive;
+    TG.ui.fillStars($('done-stars'), stars);
+    TG.sound.stars(stars);
+    if (levelUp) setTimeout(() => TG.sound.play('levelup'), 400 + stars * 350);
+    $('done-text').textContent = i18n.t('doneText') + (levelUp ? ' ' + i18n.t('levelUp') : '');
     refreshStars();
     showDone();
     checkUnlocks();
@@ -126,8 +128,33 @@
     $('btn-unlock-later').textContent = i18n.t('later');
     $('btn-unlock-play').textContent = i18n.t('playNow');
     $('unlock').hidden = false;
+    setTimeout(() => TG.sound.play('unlock'), 1500);
     refreshTexts();
   }
+
+  // ------------------------------------------------------------ sound and colour style
+
+  function refreshSoundButton() {
+    const on = TG.sound.isEnabled();
+    $('btn-sound').textContent = on ? '🔊' : '🔇';
+    $('btn-sound').title = i18n.t(on ? 'soundOn' : 'soundOff');
+    $('btn-sound').setAttribute('aria-pressed', String(on));
+  }
+  $('btn-sound').addEventListener('click', () => {
+    TG.sound.setEnabled(!TG.sound.isEnabled());
+    refreshSoundButton();
+    TG.sound.play('click');
+  });
+  // A soft click for every button press
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button');
+    if (b && b.id !== 'btn-sound' && !b.classList.contains('round-btn')) TG.sound.play('click');
+  });
+
+  function applyStyle() {
+    document.documentElement.dataset.style = TG.settings.get().style;
+  }
+  applyStyle();
 
   function showBuild() {
     drive.close();
@@ -169,6 +196,7 @@
 
     $('btn-round-map').textContent = i18n.t('backToMap');
     refreshStars();
+    refreshSoundButton();
 
     const sel = $('level-select');
     sel.textContent = '';
@@ -303,6 +331,21 @@
     diff.textContent = '';
     diff.append(checkbox('adaptive', '1', cur.adaptive, i18n.t('adaptive')));
     diff.append(checkbox('manualUnload', '1', cur.manualUnload, i18n.t('manualUnload')));
+    $('style-legend').textContent = i18n.t('colorStyle');
+    const styleBox = $('style-options');
+    styleBox.textContent = '';
+    for (const st of TG.settings.STYLES) {
+      const label = document.createElement('label');
+      label.className = 'choice';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'style';
+      input.value = st;
+      input.checked = cur.style === st;
+      input.addEventListener('change', () => { document.documentElement.dataset.style = st; }); // live preview
+      label.append(input, document.createTextNode(' ' + i18n.t('style_' + st)));
+      styleBox.append(label);
+    }
     renderProgress();
     $('btn-settings-save').textContent = i18n.t('save');
     $('btn-settings-cancel').textContent = i18n.t('cancel');
@@ -326,7 +369,10 @@
   }
 
   $('btn-settings').addEventListener('click', openSettings);
-  $('btn-settings-cancel').addEventListener('click', () => { $('settings').hidden = true; });
+  $('btn-settings-cancel').addEventListener('click', () => {
+    $('settings').hidden = true;
+    applyStyle(); // undo a style preview
+  });
   $('settings-form').addEventListener('submit', e => {
     e.preventDefault();
     const form = e.target;
@@ -339,7 +385,9 @@
       skills,
       adaptive: form.querySelector('input[name=adaptive]').checked,
       manualUnload: form.querySelector('input[name=manualUnload]').checked,
+      style: (form.querySelector('input[name=style]:checked') || {}).value,
     });
+    applyStyle();
     $('settings').hidden = true;
   });
   $('btn-reset-progress').addEventListener('click', () => {

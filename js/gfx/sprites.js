@@ -427,7 +427,8 @@
               if (a <= edge) {
                 ground = a > edge - 1 ? C.ballastEdge : shade(C.ballast, hash2(x, y, 77) * 0.8 + valueNoise(x / 3, y / 3, 78) * 0.2);
               }
-              if (a < 10.5 && phase >= 2.5 && phase < 5.5 && (!g.end || g.s < 19)) {
+              const mainLine = type !== 'junction' || (link.length === 2 && (link[0] + 2) % 4 === link[1]);
+            if (mainLine && a < 10.5 && phase >= 2.5 && phase < 5.5 && (!g.end || g.s < 19)) {
                 sleeper = a >= 9.5 ? C.sleeperEnd
                   : phase < 3.5 ? C.sleeperTop // lit edge
                   : shade(C.sleeper, valueNoise(g.off / 3, g.s, 79) * 0.6 + hash2(x, y, 80) * 0.4);
@@ -665,6 +666,35 @@
     }
   }
 
+  // ================================================================ top-down train (victory lap)
+
+  /** Locomotive or wagon seen from above, facing east (the renderer rotates it). */
+  function topTrain(kind, index) {
+    if (kind === 'loco') {
+      return makeSprite(22, 12, set => {
+        set.rect(0, 1, 21, 10, '#2a2a2c');
+        set.rect(7, 3, 19, 8, '#386a45');
+        set.rect(7, 3, 19, 4, '#5f9a6a');
+        set.rect(7, 8, 19, 8, '#24442d');
+        set.rect(18, 3, 20, 8, '#2f3135');
+        set.rect(18, 5, 19, 6, '#111111');
+        set.rect(13, 5, 14, 6, '#c9a646');
+        set.rect(1, 1, 7, 10, '#3a3d42');
+        set.rect(1, 1, 7, 1, '#5a5f66');
+        set.rect(21, 2, 21, 3, '#a3312a');
+        set.rect(21, 8, 21, 9, '#a3312a');
+      });
+    }
+    const col = ['#7a4a2e', '#6b7176', '#4d6a50'][index % 3];
+    return makeSprite(16, 11, set => {
+      set.rect(0, 0, 15, 10, shadeHex(col, -40));
+      set.rect(1, 1, 14, 9, col);
+      set.rect(3, 3, 12, 7, shadeHex(col, -25));
+      set.rect(0, 2, 0, 3, '#9a9a9a');
+      set.rect(0, 7, 0, 8, '#9a9a9a');
+    });
+  }
+
   // ================================================================ theme obstacles (top-down)
 
   /** Heap of sand or gravel (construction). */
@@ -759,5 +789,6 @@
     track: (type, rot, platformDir) =>
       get('track:' + type + ':' + rot + ':' + platformDir, () => track(type, rot, { platformDir })),
     building: kind => get('building:' + kind, () => building(TG.themes.stationKind(kind).art)),
+    topTrain: (kind, index) => get('top:' + kind + ':' + ((index || 0) % 3), () => topTrain(kind, index || 0)),
   };
 })(globalThis.TG = globalThis.TG || {});

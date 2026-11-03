@@ -496,3 +496,16 @@ legend { padding: 0 6px; font-weight: 700; }
 .unlock-burst { font-size: 64px; color: var(--accent); line-height: 1; animation: spin 1.2s ease-out; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); }
 @keyframes spin { from { transform: rotate(-180deg) scale(0.3); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .unlock-burst { animation: none; } }
+
+/* ------------------------------------------------------------ colour styles (parent setting) */
+
+html[data-style="bright"] canvas { filter: saturate(1.35) brightness(1.05) contrast(1.05); }
+html[data-style="warm"] canvas { filter: sepia(0.22) saturate(1.25) brightness(1.03) hue-rotate(-6deg); }
+html[data-style="muted"] canvas { filter: saturate(0.72) contrast(0.95) brightness(0.98); }
+
+/* ------------------------------------------------------------ stars popping in */
+
+.stars .star { display: inline-block; color: #5a5f66; animation: star-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.stars .star.on { color: var(--accent); }
+@keyframes star-pop { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .stars .star { animation: none; } }

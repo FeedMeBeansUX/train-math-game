@@ -64,6 +64,11 @@
       return SS.WAGON_TYPES[(this.scene && this.scene.wagonType) || 'freight'];
     }
 
+    /** Vertical sway (0 or -1 px) of wagon i while moving. */
+    wagonSway(i) {
+      return this.sway == null ? 0 : (Math.sin(this.sway / 10 + i * 1.9) > 0.85 ? -1 : 0);
+    }
+
     /** Left edge of wagon i (0 = right behind the locomotive). */
     wagonLeft(front, i) {
       const t = this.wagonType();
@@ -147,6 +152,8 @@
       const cam = view.camera;
       const scenery = cam + (sc.sceneryOffset || 0);
       ctx.imageSmoothingEnabled = false;
+      // Wagons sway a little while the train is moving
+      this.sway = view.speed > 20 ? view.wheelDist : null;
 
       ctx.drawImage(SS.sky(), 0, 0);
       this.strip(ctx, SS.clouds(), scenery * 0.05 + view.time * 3, 0);
@@ -166,6 +173,10 @@
       this.drawCargo(ctx, view.front, view.cargo || [], cam);
       for (const f of view.flyers || []) ctx.drawImage(SS.goodIcon(f.good), Math.round(f.x - cam), Math.round(f.y));
       this.strip(ctx, SS.foreground(), scenery * 1.25, H - 40);
+      for (const p of view.confetti || []) {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
 
       const out = this.ctx;
       out.imageSmoothingEnabled = false;
@@ -430,10 +441,13 @@
 
     /** Goods in the wagons; cargo is a list of good ids (null = slot not shown yet). */
     drawCargo(ctx, front, cargo, cam) {
+      const t = this.wagonType();
+      const per = t.seats ? t.seats.length : TG.round.WAGON_CAPACITY;
       cargo.forEach((good, i) => {
         if (!good) return;
         const p = this.slotPos(front, i);
-        ctx.drawImage(good === 'passenger' ? SS.head(i) : SS.goodIcon(good), Math.round(p.x - cam), p.y);
+        const dy = this.wagonSway(Math.floor(i / per));
+        ctx.drawImage(good === 'passenger' ? SS.head(i) : SS.goodIcon(good), Math.round(p.x - cam), p.y + dy);
       });
     }
 
@@ -454,7 +468,7 @@
       // Wagons (behind the locomotive)
       for (let i = 0; i < wagons; i++) {
         const left = this.wagonLeft(Math.round(front), i);
-        ctx.drawImage(SS.wagonSprite(wagonType, i), left, RAIL_Y - t.h);
+        ctx.drawImage(SS.wagonSprite(wagonType, i), left, RAIL_Y - t.h + this.wagonSway(i));
         for (const wx of t.wheels) this.drawWheel(ctx, 'wagon', left + wx, RAIL_Y - 4.5, 4.5, 6, wheelDist);
         ctx.fillStyle = '#2a2a2c';
         ctx.fillRect(left + t.w, RAIL_Y - 10, 3, 1);
