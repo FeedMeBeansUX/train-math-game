@@ -9,6 +9,9 @@
  *   3. On arrival the station takes what it ordered; the player is told what
  *      was delivered, what is still missing and what is left in the train.
  *   4. When every order is done: a summary with 1-3 stars.
+ * What is ordered comes from the maths engine (TG.maths), one skill per round.
+ * In passenger rounds the player picks the number of carriages instead of
+ * loading goods; passengers board when the train leaves the start.
  */
 (function (TG) {
   'use strict';
@@ -26,7 +29,6 @@
   const VMAX = 280;        // top speed, art px per second
   const ACC = 130;         // acceleration / braking, art px per second²
   const WHISTLE = 0.8;     // seconds between pressing the button and moving off
-  const WAGONS = 3;
   const MAX_PILES = 3;     // crates that fit on the platform next to the train
   const CHIMNEY_DX = -10;  // chimney position relative to the train's front
   const CHIMNEY_Y = SS.RAIL_Y - SS.LOCO_H + 1;
@@ -79,12 +81,13 @@
     return p;
   }
 
-  /** Count shown as dots in groups of five (like a ten frame). */
+  /** Count shown as dots in ten frames: blocks of ten, rows of five (like the wagons). */
   function dotsEl(n) {
     const box = el('span', 'dots');
-    for (let i = 0; i < n; i++) {
-      if (i > 0 && i % 5 === 0) box.append(el('span', 'gap'));
-      box.append(el('span', 'dot'));
+    for (let t = 0; t < n; t += 10) {
+      const ten = el('span', 'ten');
+      for (let i = t; i < Math.min(n, t + 10); i++) ten.append(el('span', 'dot'));
+      box.append(ten);
     }
     return box;
   }
@@ -126,8 +129,10 @@
     }
 
     newRound() {
-      const orders = RD.generateOrders(this.state, this.def, Math.floor(Math.random() * 1e9));
-      this.round = RD.createRound(orders, WAGONS);
+      const plan = TG.maths.planRound(this.state, TG.settings.get(), Math.floor(Math.random() * 1e9), this.lastKind);
+      this.plan = plan;
+      this.lastKind = plan.kind;
+      this.round = RD.createRound(plan.orders, plan);
       this.current = this.startId;
       this.trip = null;
       this.arrivedHere = false;
@@ -146,7 +151,7 @@
     // ------------------------------------------------------------ trips
 
     sceneBase() {
-      return { theme: this.def.theme, wagons: WAGONS, sceneryOffset: this.sceneryOffset };
+      return { theme: this.def.theme, wagons: this.round.wagons, wagonType: this.round.wagonType, sceneryOffset: this.sceneryOffset };
     }
 
     idleScene() {
@@ -172,13 +177,30 @@
       const to = L.stationById(this.state, toId);
       this.renderer.setScene(Object.assign(this.sceneBase(), { startKind: from.kind, endKind: to.kind, worldEnd, bridges }));
       this.sceneStations = [this.current, toId];
-      this.trip = { route, to: toId, D, worldEnd, motion: motion(D), t: -WHISTLE, lastPos: 0 };
       this.flyers = [];
       this.pendingLoad = {};
       this.messages = [];
+      const boarding = this.round.mode === 'passengers' && this.current === this.startId ? this.boardPassengers() : 0;
+      this.trip = { route, to: toId, D, worldEnd, motion: motion(D), t: -(WHISTLE + boarding), lastPos: 0 };
       for (let i = 0; i < 6; i++) this.puff(this.front + CHIMNEY_DX, 0, 1.4);
       this.buildSigns();
       this.refresh();
+    }
+
+    /** Waiting passengers walk into the carriages. Returns the extra seconds this takes. */
+    boardPassengers() {
+      const before = this.round.load.length;
+      const waitingBefore = RD.waitingPassengers(this.round);
+      const n = RD.board(this.round);
+      for (let i = 0; i < n; i++) {
+        this.pendingLoad.passenger = (this.pendingLoad.passenger || 0) + 1;
+        const from = this.renderer.pileItemPos(0, 0, Math.min(25, waitingBefore - 1 - i), false, 'passenger');
+        this.fly('passenger', from, this.renderer.slotPos(this.front, before + i), -i * 0.08, () => { this.pendingLoad.passenger--; });
+      }
+      const left = RD.waitingPassengers(this.round);
+      if (n > 0) this.messages.push(Object.assign(i18n.both(n === 1 ? 'boardedOne' : 'boardedMany', { n }), { kind: 'ok' }));
+      if (left > 0) this.messages.push(Object.assign(i18n.both(left === 1 ? 'waitingOne' : 'waitingMany', { k: left }), { kind: 'warn' }));
+      return n > 0 ? n * 0.08 + FLY_TIME : 0;
     }
 
     arrive() {
@@ -210,7 +232,7 @@
         const from = this.renderer.slotPos(this.front, idx);
         const p = Math.min(goodsHere.indexOf(good), MAX_PILES - 1);
         const k = this.deliveredCount(this.current, good) - this.pendingPile[key];
-        const to = this.renderer.pileItemPos(0, p, Math.min(9, k), false);
+        const to = this.renderer.pileItemPos(0, p, Math.min(good === 'passenger' ? 25 : 9, k), false, good);
         this.fly(good, from, to, -i * 0.12, () => { this.pendingPile[key]--; });
       });
       this.busy = removed.length > 0;
@@ -248,11 +270,24 @@
       return !this.trip && !this.busy && this.current === this.startId;
     }
 
+    passengers() {
+      return this.round.mode === 'passengers';
+    }
+
+    /** Passenger rounds: add or remove carriages at the start station. */
+    setWagons(n) {
+      if (!this.atStart() || !RD.setWagons(this.round, n, TG.maths.MAX_COACHES)) return;
+      this.messages = [];
+      this.idleScene();
+      this.refresh();
+    }
+
     supplyGoods() {
       return RD.goodsNeeded(this.round);
     }
 
     loadGood(good) {
+      if (this.passengers()) return;
       if (!this.atStart()) {
         const startKind = L.stationById(this.state, this.startId).kind;
         this.messages = [i18n.both('loadOnlyAtStart', { s: l => i18n.stationPhrase(startKind, l) })];
@@ -274,7 +309,7 @@
     }
 
     unloadGood(good) {
-      if (!this.atStart()) return;
+      if (!this.atStart() || this.passengers()) return;
       const idx = RD.unloadOne(this.round, good);
       if (idx < 0) return;
       this.messages = [];
@@ -299,6 +334,7 @@
 
     pilesFor(stationId) {
       if (stationId === this.startId) {
+        if (this.passengers()) return [{ good: 'passenger', count: RD.waitingPassengers(this.round) }];
         return this.supplyGoods().slice(0, MAX_PILES).map(good => ({ good, supply: true }));
       }
       return this.deliveredGoods(stationId).slice(0, MAX_PILES).map(good => ({
@@ -339,7 +375,7 @@
         this.wheelDist += pos - tr.lastPos;
         tr.lastPos = pos;
         this.front = STOP_X + pos;
-        this.camera = Math.max(0, Math.min(tr.worldEnd - SS.W, this.front - 360));
+        this.camera = Math.max(0, Math.min(tr.worldEnd - SS.W, this.front - STOP_X));
         this.speed = tr.t > 0 ? tr.motion.speed(t) : 0;
         if (tr.t >= tr.motion.T + 0.4) this.arrive();
       }
@@ -421,7 +457,7 @@
     }
 
     hit(e) {
-      if (!this.atStart()) return null;
+      if (!this.atStart() || this.passengers()) return null;
       const p = this.artPoint(e);
       const goods = this.supplyGoods().slice(0, MAX_PILES);
       const pile = this.renderer.pileAt(0, goods.length, p.x, p.y, this.camera);
@@ -524,6 +560,14 @@
         list.append(li);
       }
       box.append(list);
+      for (const note of this.plan.notes) {
+        const v = note.vars;
+        const vars = {};
+        if (v.p != null) vars.p = v.p;
+        if (v.c != null) vars.c = v.c;
+        if (v.good) vars.goods = l => i18n.goodsWord(v.good, v.p != null ? v.p : 2, l);
+        box.append(sentenceEl(i18n.both(note.key, vars), 'note'));
+      }
     }
 
     refreshMessages() {
@@ -537,6 +581,10 @@
       const box = this.dom.load;
       box.textContent = '';
       box.append(el('h2', null, i18n.t('load')));
+      if (this.passengers()) {
+        this.refreshCarriages(box);
+        return;
+      }
       const goods = Array.from(new Set([...this.supplyGoods(), ...this.round.load]));
       const canLoad = this.atStart();
       for (const good of goods) {
@@ -564,6 +612,57 @@
       }
       if (!this.round.load.length && !canLoad) box.append(el('p', 'hint', i18n.t('trainEmpty')));
       if (canLoad) box.append(el('p', 'hint', i18n.t('loadHint')));
+    }
+
+    /** Passenger rounds: number of carriages, and seats shown as groups of dots (c, c, c ...). */
+    refreshCarriages(box) {
+      const r = this.round;
+      const canChange = this.atStart();
+      const row = el('div', 'load-row');
+      const icon = el('canvas', 'good-icon wide');
+      const t = SS.WAGON_TYPES[r.wagonType];
+      icon.width = t.w;
+      icon.height = t.h;
+      icon.getContext('2d').drawImage(SS.wagonSprite(r.wagonType, 0), 0, 0);
+      row.append(icon);
+      const label = el('div', 'load-label');
+      const word = el('span', 'name');
+      word.append(el('span', 'main lang-' + i18n.getLang(), i18n.t('wagons')));
+      word.append(el('span', 'second lang-' + i18n.other(), i18n.t('wagons', null, i18n.other())));
+      label.append(word);
+      row.append(label);
+      const minus = el('button', 'btn round-btn', '−');
+      minus.type = 'button';
+      minus.disabled = !canChange || r.wagons <= 1 || (r.wagons - 1) * r.perWagon < r.load.length;
+      minus.addEventListener('click', () => this.setWagons(r.wagons - 1));
+      const plus = el('button', 'btn round-btn', '+');
+      plus.type = 'button';
+      plus.disabled = !canChange || r.wagons >= TG.maths.MAX_COACHES;
+      plus.addEventListener('click', () => this.setWagons(r.wagons + 1));
+      row.append(minus, el('span', 'load-count', String(r.wagons)), plus);
+      box.append(row);
+
+      // One group of seat dots per carriage; filled dots are passengers on board
+      const groups = el('div', 'seat-groups');
+      const onBoard = RD.count(r, 'passenger');
+      for (let w = 0; w < r.wagons; w++) {
+        const g = el('span', 'seat-group');
+        for (let k = 0; k < r.perWagon; k++) {
+          const seat = w * r.perWagon + k;
+          g.append(el('span', 'dot' + (seat < onBoard ? '' : ' empty')));
+        }
+        groups.append(g);
+      }
+      box.append(groups);
+      const prow = el('div', 'load-row passengers-row');
+      prow.append(goodIconEl('passenger'));
+      const plabel = el('div', 'load-label');
+      const pword = el('span', 'name');
+      pword.append(el('span', 'main lang-' + i18n.getLang(), i18n.goodsWord('passenger', 2)));
+      pword.append(el('span', 'second lang-' + i18n.other(), i18n.goodsWord('passenger', 2, i18n.other())));
+      plabel.append(pword);
+      prow.append(plabel, el('span'), el('span', 'load-count', String(onBoard)), el('span'));
+      box.append(prow);
     }
 
     refreshDestinations() {
@@ -599,13 +698,15 @@
       const startKind = L.stationById(this.state, this.startId).kind;
       const extra = this.round.departuresFromStart - 1;
       const left = RD.leftovers(this.round);
-      if (extra <= 0 && !left.length) d.roundText.append(sentenceEl(i18n.both('perfect'), 'ok'));
+      if (n === 3) d.roundText.append(sentenceEl(i18n.both('perfect'), 'ok'));
       if (extra > 0) {
         d.roundText.append(sentenceEl(i18n.both(extra === 1 ? 'tripsOne' : 'tripsMany', { k: extra, s: l => i18n.stationPhrase(startKind, l) })));
       }
       for (const lo of left) {
         d.roundText.append(sentenceEl(i18n.both(lo.n === 1 ? 'leftOne' : 'leftMany', { k: lo.n, goods: l => i18n.goodsWord(lo.good, lo.n, l) })));
       }
+      const empty = this.round.emptySeats || 0;
+      if (empty > 0) d.roundText.append(sentenceEl(i18n.both(empty === 1 ? 'emptySeatsOne' : 'emptySeatsMany', { k: empty })));
       d.roundDone.hidden = false;
       d.btnNewRound.focus();
     }

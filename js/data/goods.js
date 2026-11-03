@@ -7,6 +7,8 @@
   'use strict';
 
   TG.GOODS = {
+    parcel:    { nl: ['pakket', 'pakketten'], en: ['parcel', 'parcels'] },
+    passenger: { nl: ['passagier', 'passagiers'], en: ['passenger', 'passengers'] },
     chicken: { nl: ['kip', 'kippen'], en: ['chicken', 'chickens'] },
     hay:     { nl: ['hooibaal', 'hooibalen'], en: ['hay bale', 'hay bales'] },
     flour:   { nl: ['zak meel', 'zakken meel'], en: ['sack of flour', 'sacks of flour'] },

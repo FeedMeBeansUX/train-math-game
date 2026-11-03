@@ -80,19 +80,31 @@ Each phase ends with something playable in the browser.
 - Not done yet: a test session with the player. Unloading is automatic for now; unloading by hand
   (subtraction practice) could become a harder setting in phase 6.
 
-### Phase 5 — Maths engine
-- Order generator per skill: counting, addition and subtraction up to N (N configurable, default 20).
-- Questions built into the gameplay rather than shown as sums: total to load = sum of the drop-offs; what is
-  left after each stop = subtraction.
-- Multiplication: carriages have a fixed capacity; work out how many carriages are needed. Division later
-  (share goods evenly over stations).
+### Phase 5 — Maths engine ✅
+- `js/core/maths.js` plans each round around **one skill**, so the sentences stay simple:
+  - **Counting**: every station wants a number of goods (up to 10).
+  - **Addition**: two or three stations want *parcels* (every station accepts parcels); load the total in one
+    go ("Hoeveel pakketten moeten er in de trein?"). On one-station levels: **top up** instead — the train
+    already holds some goods ("Er zitten al 3 kippen in de trein") and the station wants 8.
+  - **Subtraction**: the train already holds more than the station wants; take the extra out at the warehouse.
+  - **Multiplication**: passengers. "In elke wagon passen 5 passagiers. Hoeveel wagons heb je nodig?" The
+    player chooses the number of carriages (2-, 5- or 10-seaters, the last a Dutch double-decker); passengers
+    board when the train leaves. Too few carriages: people stay behind (extra trip). Too many: empty seats
+    (a star less). Seats are shown as groups of dots, one group per carriage.
+- The same kind is not chosen twice in a row; all numbers stay within the chosen maximum (and the train's
+  capacity of 30 goods).
+- Counts in the panel are shown as ten frames (blocks of ten in rows of five), like the wagons.
+- **Parent settings** (⚙ in the top bar): largest number (10 / 20 / 50 / 100) and which skills are on.
+  Default: up to 20, counting + addition + subtraction. Saved in the browser.
+- Not done: **division** (sharing evenly over stations) needs unloading by hand; moved to phase 6.
 
 ### Phase 6 — Adaptive difficulty and progress
 - Keep track of results per skill (puzzle, addition, subtraction, multiplication) and adjust the next round:
   number range, number of stations/goods, puzzle size, spare pieces.
 - **Puzzle generator** (needed so puzzles can adapt): place stations, build a valid route with obstacles,
   derive the piece inventory from it, check it can be solved.
-- Saved in the browser (`localStorage`), with a small parents' screen (number range, skills, reset).
+- Saved in the browser (`localStorage`); extend the parents' settings from phase 5 (progress overview, reset).
+- Unloading by hand as a harder setting, which also enables **division** (share goods evenly over stations).
 
 ### Phase 7 — Themes and progression
 - Themes: farm, construction, racing, garage, town. Each has its own stations, goods, colours and side-view

@@ -17,6 +17,8 @@ const FILES = [
   'js/core/network.js',
   'js/core/route.js',
   'js/core/round.js',
+  'js/core/settings.js',
+  'js/core/maths.js',
   'js/data/themes.js',
   'js/data/goods.js',
   'js/data/i18n.js',
@@ -221,22 +223,125 @@ const RD = () => TG.round;
 function testRound(orders) {
   return RD().createRound(orders.map((o, i) => Object.assign({ id: 'o' + i, delivered: 0 }, o)), 2);
 }
-test('orders: one per non-start station, goods the station wants, amounts in range', () => {
+const M = () => TG.maths;
+const ALL = { maxNumber: 20, skills: { count: true, add: true, subtract: true, multiply: true } };
+function only(skill, max) {
+  const skills = { count: false, add: false, subtract: false, multiply: false };
+  skills[skill] = true;
+  return { maxNumber: max || 20, skills };
+}
+function planMany(settings, fn) {
   for (const def of TG.LEVELS) {
     const s = L.createLevel(def);
-    const orders = RD().generateOrders(s, def, 42);
-    eq(orders.length, s.stations.length - 1, def.id);
-    for (const o of orders) {
-      const st = L.stationById(s, o.stationId);
-      assert(TG.themes.stationKind(st.kind).wants.includes(o.good), def.id + ': ' + st.kind + ' does not want ' + o.good);
-      assert(o.amount >= def.orders.min && o.amount <= def.orders.max, def.id + ': amount ' + o.amount);
-    }
+    for (let seed = 1; seed <= 60; seed++) fn(M().planRound(s, settings, seed), s, def, seed);
+  }
+}
+test('settings: defaults, normalising and at least one skill', () => {
+  const d = TG.settings.normalize(null);
+  eq(d.maxNumber, 20);
+  eq(d.skills.multiply, false);
+  eq(TG.settings.normalize({ maxNumber: 7 }).maxNumber, 20, 'unknown max falls back');
+  const none = TG.settings.normalize({ skills: { count: false, add: false, subtract: false, multiply: false } });
+  assert(none.skills.count, 'counting switched back on');
+});
+test('plans only use enabled skills', () => {
+  for (const skill of ['count', 'add', 'subtract', 'multiply']) {
+    planMany(only(skill), p => assert(p.skill === skill, skill + ' gave ' + p.skill));
   }
 });
-test('orders are reproducible with the same seed', () => {
-  const def = TG.LEVELS[5];
-  const s = L.createLevel(def);
-  eq(RD().generateOrders(s, def, 7), RD().generateOrders(s, def, 7));
+test('every order is for a station that wants the good; numbers stay within the maximum', () => {
+  for (const max of [10, 20, 50]) {
+    planMany(Object.assign({}, ALL, { maxNumber: max }), (p, s, def, seed) => {
+      assert(p.orders.length > 0, def.id + ' no orders');
+      for (const o of p.orders) {
+        const st = L.stationById(s, o.stationId);
+        assert(!st.isStart, 'order for the start station');
+        const ok = o.good === 'parcel' || o.good === 'passenger' || TG.themes.stationKind(st.kind).wants.includes(o.good);
+        assert(ok, def.id + ': ' + st.kind + ' does not want ' + o.good);
+        assert(o.amount >= 1 && o.amount <= max, def.id + ' seed ' + seed + ': amount ' + o.amount + ' > ' + max);
+      }
+      assert(p.preload.length <= max, 'preload too big');
+      const total = p.orders.reduce((n, o) => n + o.amount, 0);
+      if (p.mode === 'goods') assert(Math.max(total, p.preload.length) <= 30 || p.kind === 'count', p.kind + ' does not fit the train: ' + total);
+    });
+  }
+});
+test('addition: parcels to two or three stations, summing to at most the maximum', () => {
+  planMany(only('add'), (p, s) => {
+    if (p.kind !== 'add') return;
+    assert(p.orders.length >= 2 && p.orders.length <= 3);
+    assert(p.orders.every(o => o.good === 'parcel'));
+    assert(p.orders.reduce((n, o) => n + o.amount, 0) <= 20);
+  });
+});
+test('addition on a one-station level becomes "top up" (missing addend)', () => {
+  const s = L.createLevel(TG.LEVELS[0]);
+  for (let seed = 1; seed < 30; seed++) {
+    const p = M().planRound(s, only('add'), seed);
+    eq(p.kind, 'missing');
+    assert(p.preload.length >= 1 && p.preload.length < p.orders[0].amount, 'preload smaller than the order');
+  }
+});
+test('subtraction: the train starts with more than the station wants', () => {
+  planMany(only('subtract'), p => {
+    eq(p.kind, 'takeaway');
+    assert(p.preload.length > p.orders[0].amount);
+    assert(p.preload.every(g => g === p.orders[0].good));
+  });
+});
+test('multiplication: passengers in whole carriages of 2, 5 or 10', () => {
+  planMany(only('multiply'), p => {
+    eq(p.mode, 'passengers');
+    assert(M().COACH_SIZES.includes(p.perWagon));
+    const n = p.orders[0].amount;
+    assert(n % p.perWagon === 0 && n / p.perWagon >= 2 && n / p.perWagon <= M().MAX_COACHES, n + ' / ' + p.perWagon);
+  });
+});
+test('the same kind is not planned twice in a row when there is a choice', () => {
+  const s = L.createLevel(TG.LEVELS[5]);
+  for (let seed = 1; seed < 40; seed++) {
+    const p = M().planRound(s, ALL, seed, 'count');
+    assert(p.kind !== 'count');
+  }
+});
+test('plans are reproducible with the same seed', () => {
+  const s = L.createLevel(TG.LEVELS[5]);
+  eq(M().planRound(s, ALL, 9), M().planRound(s, ALL, 9));
+});
+test('passengers: board as many as fit, empty seats cost a star', () => {
+  const orders = [{ id: 'o0', stationId: 'market', good: 'passenger', amount: 10, delivered: 0 }];
+  const r = RD().createRound(orders, { mode: 'passengers', wagons: 1, perWagon: 5, wagonType: 'coach5' });
+  eq(RD().waitingPassengers(r), 10);
+  assert(RD().setWagons(r, 3));
+  eq(r.capacity, 15);
+  RD().recordDeparture(r, true);
+  eq(RD().board(r), 10);
+  eq(r.emptySeats, 5);
+  RD().deliverAt(r, 'market');
+  assert(RD().isComplete(r));
+  eq(RD().stars(r), 2);
+});
+test('passengers: too few carriages means a second trip', () => {
+  const orders = [{ id: 'o0', stationId: 'market', good: 'passenger', amount: 10, delivered: 0 }];
+  const r = RD().createRound(orders, { mode: 'passengers', wagons: 1, perWagon: 5 });
+  RD().recordDeparture(r, true);
+  eq(RD().board(r), 5);
+  eq(RD().waitingPassengers(r), 5);
+  RD().deliverAt(r, 'market');
+  RD().recordDeparture(r, true);
+  eq(RD().board(r), 5);
+  RD().deliverAt(r, 'market');
+  assert(RD().isComplete(r));
+  eq(RD().stars(r), 2, 'one extra trip');
+});
+test('preloaded goods count as load and can be taken out', () => {
+  const orders = [{ id: 'o0', stationId: 'farm', good: 'chicken', amount: 3, delivered: 0 }];
+  const r = RD().createRound(orders, { preload: ['chicken', 'chicken', 'chicken', 'chicken', 'chicken'] });
+  eq(RD().count(r, 'chicken'), 5);
+  RD().unloadOne(r, 'chicken'); RD().unloadOne(r, 'chicken');
+  RD().recordDeparture(r, true);
+  RD().deliverAt(r, 'farm');
+  eq(RD().stars(r), 3);
 });
 test('loading keeps goods grouped and respects capacity', () => {
   const r = testRound([{ stationId: 'farm', good: 'chicken', amount: 3 }]);

@@ -51,6 +51,30 @@
     tripsOne:        { nl: 'Je moest {k} keer extra naar {s}.', en: 'You had to go back to {s} {k} more time.' },
     tripsMany:       { nl: 'Je moest {k} keer extra naar {s}.', en: 'You had to go back to {s} {k} more times.' },
     newRound:        { nl: 'Nog een ronde', en: 'Another round' },
+    // Maths engine notes under the orders
+    howManyOnTrain:  { nl: 'Hoeveel {goods} moeten er in de trein?', en: 'How many {goods} go on the train?' },
+    alreadyOne:      { nl: 'Er zit al {p} {goods} in de trein.', en: 'There is already {p} {goods} on the train.' },
+    alreadyMany:     { nl: 'Er zitten al {p} {goods} in de trein.', en: 'There are already {p} {goods} on the train.' },
+    perWagon:        { nl: 'In elke wagon passen {c} passagiers.', en: 'Each carriage holds {c} passengers.' },
+    howManyWagons:   { nl: 'Hoeveel wagons heb je nodig?', en: 'How many carriages do you need?' },
+    boardedOne:      { nl: '{n} passagier is ingestapt.', en: '{n} passenger got on.' },
+    boardedMany:     { nl: '{n} passagiers zijn ingestapt.', en: '{n} passengers got on.' },
+    waitingOne:      { nl: 'Er wacht nog {k} passagier.', en: '{k} passenger is still waiting.' },
+    waitingMany:     { nl: 'Er wachten nog {k} passagiers.', en: '{k} passengers are still waiting.' },
+    emptySeatsOne:   { nl: 'Er was {k} lege plaats.', en: 'There was {k} empty seat.' },
+    emptySeatsMany:  { nl: 'Er waren {k} lege plaatsen.', en: 'There were {k} empty seats.' },
+    wagons:          { nl: 'Wagons', en: 'Carriages' },
+    // Settings (for parents)
+    settings:        { nl: 'Instellingen', en: 'Settings' },
+    settingsIntro:   { nl: 'Voor ouders. Geldt vanaf de volgende ronde.', en: 'For parents. Applies from the next round.' },
+    maxNumber:       { nl: 'Grootste getal', en: 'Largest number' },
+    skills:          { nl: 'Rekenen', en: 'Maths' },
+    skillCount:      { nl: 'Tellen', en: 'Counting' },
+    skillAdd:        { nl: 'Optellen', en: 'Addition' },
+    skillSubtract:   { nl: 'Aftrekken', en: 'Subtraction' },
+    skillMultiply:   { nl: 'Keersommen (passagiers in wagons)', en: 'Multiplication (passengers in carriages)' },
+    save:            { nl: 'Opslaan', en: 'Save' },
+    cancel:          { nl: 'Annuleren', en: 'Cancel' },
   };
 
   const NAMES = {

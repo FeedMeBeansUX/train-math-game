@@ -12,30 +12,50 @@
 
   const WAGON_CAPACITY = 10;
 
-  /** One order per station except the start, with goods that station wants. */
-  function generateOrders(state, def, seed) {
-    const rand = TG.util.rng(seed);
-    const range = def.orders || { min: 1, max: 5 };
-    return state.stations.filter(s => !s.isStart).map((st, i) => {
-      const wants = TG.themes.stationKind(st.kind).wants;
-      return {
-        id: 'o' + i,
-        stationId: st.id,
-        good: wants[Math.floor(rand() * wants.length)],
-        amount: range.min + Math.floor(rand() * (range.max - range.min + 1)),
-        delivered: 0,
-      };
-    });
-  }
-
-  function createRound(orders, wagons) {
+  /**
+   * opts: { wagons, perWagon, wagonType, mode, preload } (a number means just the wagon count).
+   * mode 'passengers': the player picks the number of carriages; passengers board when leaving the start.
+   */
+  function createRound(orders, opts) {
+    if (typeof opts === 'number') opts = { wagons: opts };
+    opts = opts || {};
+    const wagons = opts.wagons || 3;
+    const perWagon = opts.perWagon || WAGON_CAPACITY;
     return {
       orders,
+      mode: opts.mode || 'goods',
+      wagonType: opts.wagonType || 'freight',
       wagons,
-      capacity: wagons * WAGON_CAPACITY,
-      load: [],
+      perWagon,
+      capacity: wagons * perWagon,
+      load: (opts.preload || []).slice(),
       departuresFromStart: 0,
+      emptySeats: null,
     };
+  }
+
+  /** Change the number of carriages (passenger rounds); not below what is already on board. */
+  function setWagons(round, n, max) {
+    const wagons = Math.max(1, Math.min(max || 5, n));
+    if (wagons * round.perWagon < round.load.length) return false;
+    round.wagons = wagons;
+    round.capacity = wagons * round.perWagon;
+    return true;
+  }
+
+  /** Passengers still waiting at the start station. */
+  function waitingPassengers(round) {
+    let waiting = 0;
+    for (const o of round.orders) if (o.good === 'passenger') waiting += remaining(o);
+    return Math.max(0, waiting - count(round, 'passenger'));
+  }
+
+  /** Let waiting passengers get on (as many as fit). Returns how many boarded. */
+  function board(round) {
+    const n = Math.min(waitingPassengers(round), round.capacity - round.load.length);
+    for (let i = 0; i < n; i++) round.load.push('passenger');
+    if (round.emptySeats === null) round.emptySeats = round.capacity - round.load.length;
+    return n;
   }
 
   function remaining(order) {
@@ -108,9 +128,14 @@
     return round.orders.every(o => remaining(o) === 0);
   }
 
-  /** 3 stars: one trip from the start and nothing left over; one star less per extra trip or leftovers. */
+  /**
+   * 3 stars: one trip from the start, nothing left over and (passenger rounds) no empty seats on the
+   * first trip; one star less for each extra trip, for leftovers and for empty seats.
+   */
   function stars(round) {
-    const mistakes = Math.max(0, round.departuresFromStart - 1) + (round.load.length > 0 ? 1 : 0);
+    const mistakes = Math.max(0, round.departuresFromStart - 1)
+      + (round.load.length > 0 ? 1 : 0)
+      + (round.emptySeats > 0 ? 1 : 0);
     return Math.max(1, 3 - mistakes);
   }
 
@@ -123,7 +148,7 @@
 
   TG.round = {
     WAGON_CAPACITY,
-    generateOrders, createRound, remaining, goodsNeeded, count, isFull,
+    createRound, setWagons, waitingPassengers, board, remaining, goodsNeeded, count, isFull,
     loadOne, unloadOne, deliverAt, recordDeparture, isComplete, stars, leftovers,
   };
 })(globalThis.TG = globalThis.TG || {});

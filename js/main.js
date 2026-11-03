@@ -85,6 +85,8 @@
     $('pieces-heading').textContent = i18n.t('pieces');
     $('btn-reset').textContent = i18n.t('reset');
     $('btn-lang').textContent = i18n.t('language');
+    $('btn-settings').setAttribute('aria-label', i18n.t('settings'));
+    $('btn-settings').title = i18n.t('settings');
     $('done-title').textContent = i18n.t('doneTitle');
     $('btn-again').textContent = i18n.t('again');
     $('btn-next').textContent = i18n.t('next');
@@ -143,6 +145,60 @@
     build.layout();
     drive.refreshTexts();
     refreshTexts();
+  });
+
+  // ------------------------------------------------------------ parent settings
+
+  const SKILL_LABELS = { count: 'skillCount', add: 'skillAdd', subtract: 'skillSubtract', multiply: 'skillMultiply' };
+
+  function openSettings() {
+    const cur = TG.settings.get();
+    $('settings-title').textContent = i18n.t('settings');
+    $('settings-intro').textContent = i18n.t('settingsIntro');
+    $('max-legend').textContent = i18n.t('maxNumber');
+    $('skills-legend').textContent = i18n.t('skills');
+    $('btn-settings-save').textContent = i18n.t('save');
+    $('btn-settings-cancel').textContent = i18n.t('cancel');
+    const maxBox = $('max-options');
+    maxBox.textContent = '';
+    for (const n of TG.settings.MAX_OPTIONS) {
+      const label = document.createElement('label');
+      label.className = 'choice';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'max';
+      input.value = String(n);
+      input.checked = cur.maxNumber === n;
+      label.append(input, document.createTextNode(' ' + n));
+      maxBox.append(label);
+    }
+    const skillBox = $('skill-options');
+    skillBox.textContent = '';
+    for (const k of TG.settings.SKILLS) {
+      const label = document.createElement('label');
+      label.className = 'choice';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'skill';
+      input.value = k;
+      input.checked = cur.skills[k];
+      label.append(input, document.createTextNode(' ' + i18n.t(SKILL_LABELS[k])));
+      skillBox.append(label);
+    }
+    $('settings').hidden = false;
+  }
+
+  $('btn-settings').addEventListener('click', openSettings);
+  $('btn-settings-cancel').addEventListener('click', () => { $('settings').hidden = true; });
+  $('settings-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const form = e.target;
+    const skills = {};
+    for (const k of TG.settings.SKILLS) skills[k] = false;
+    for (const input of form.querySelectorAll('input[name=skill]')) skills[input.value] = input.checked;
+    const max = form.querySelector('input[name=max]:checked');
+    TG.settings.set({ maxNumber: max ? parseInt(max.value, 10) : 20, skills });
+    $('settings').hidden = true;
   });
 
   // Fonts change the panel width; lay out again once they are ready.

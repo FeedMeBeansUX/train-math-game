@@ -13,6 +13,7 @@
       <div class="top-actions">
         <select id="level-select" aria-label="Puzzel"></select>
         <button type="button" id="btn-lang" class="btn small">English</button>
+        <button type="button" id="btn-settings" class="btn small" aria-label="Instellingen">⚙</button>
       </div>
     </header>
 
@@ -83,6 +84,25 @@
       </div>
     </main>
 
+    <div id="settings" class="overlay" hidden>
+      <form class="dialog settings" id="settings-form" role="dialog" aria-labelledby="settings-title">
+        <h2 id="settings-title"></h2>
+        <p id="settings-intro" class="hint"></p>
+        <fieldset>
+          <legend id="max-legend"></legend>
+          <div id="max-options" class="choice-row"></div>
+        </fieldset>
+        <fieldset>
+          <legend id="skills-legend"></legend>
+          <div id="skill-options" class="choice-col"></div>
+        </fieldset>
+        <div class="dialog-buttons">
+          <button type="button" id="btn-settings-cancel" class="btn"></button>
+          <button type="submit" id="btn-settings-save" class="btn primary"></button>
+        </div>
+      </form>
+    </div>
+
     <div id="done" class="overlay" hidden>
       <div class="dialog" role="dialog" aria-labelledby="done-title">
         <h2 id="done-title"></h2>
@@ -103,6 +123,8 @@
   <script src="js/core/network.js"></script>
   <script src="js/core/route.js"></script>
   <script src="js/core/round.js"></script>
+  <script src="js/core/settings.js"></script>
+  <script src="js/core/maths.js"></script>
   <script src="js/data/themes.js"></script>
   <script src="js/data/goods.js"></script>
   <script src="js/data/i18n.js"></script>

@@ -16,7 +16,7 @@
   const W = SS.W, H = SS.H, RAIL_Y = SS.RAIL_Y, PLATFORM_Y = SS.PLATFORM_Y, STRIP = SS.STRIP;
 
   /** Where the train's front stands when waiting at a station (screen x). */
-  const STOP_X = 330;
+  const STOP_X = 440;
   /** Station building centre, in screen x, when the station is in view. */
   const STATION_X = 160;
   const SIGN_X = 272;
@@ -60,14 +60,30 @@
 
     // ------------------------------------------------------------ goods geometry (world coordinates)
 
-    /** Top-left of the i-th item in the train: wagons are ten frames (2 rows of 5), bottom row first. */
+    wagonType() {
+      return SS.WAGON_TYPES[(this.scene && this.scene.wagonType) || 'freight'];
+    }
+
+    /** Left edge of wagon i (0 = right behind the locomotive). */
+    wagonLeft(front, i) {
+      const t = this.wagonType();
+      return front - SS.LOCO_W - 2 - i * (t.w + 2) - t.w;
+    }
+
+    /**
+     * Top-left of the i-th item in the train. Freight wagons are ten frames (2 rows of 5 goods on top,
+     * bottom row first); passenger carriages have a head in each window.
+     */
     slotPos(front, i) {
-      const wagon = Math.floor(i / TG.round.WAGON_CAPACITY);
+      const t = this.wagonType();
+      if (t.seats) {
+        const n = t.seats.length;
+        const [sx, sy] = t.seats[i % n];
+        return { x: this.wagonLeft(front, Math.floor(i / n)) + sx, y: RAIL_Y - t.h + sy };
+      }
       const k = i % TG.round.WAGON_CAPACITY;
       const row = Math.floor(k / 5), col = k % 5;
-      const right = front - SS.LOCO_W - 2 - wagon * (SS.WAGON_W + 2);
-      const left = right - SS.WAGON_W;
-      return { x: left + 2 + col * 8, y: RAIL_Y - SS.WAGON_H + 7 - 8 - row * 8 };
+      return { x: this.wagonLeft(front, Math.floor(i / TG.round.WAGON_CAPACITY)) + 2 + col * 8, y: RAIL_Y - t.h + 7 - 8 - row * 8 };
     }
 
     /** Left edge of goods pile p on the platform of station s. */
@@ -75,9 +91,16 @@
       return this.stations[s].x - 150 + 8 + p * 38;
     }
 
-    /** Top-left of the k-th item in a pile (a pyramid of 4-3-2-1). Supply piles sit on a crate. */
-    pileItemPos(s, p, k, supply) {
+    /**
+     * Top-left of the k-th item in a pile (a pyramid of 4-3-2-1). Supply piles sit on a crate.
+     * People stand in two rows instead.
+     */
+    pileItemPos(s, p, k, supply, good) {
       const base = this.pileX(s, p);
+      if (good === 'passenger') {
+        const row = Math.floor(k / 13) % 2;
+        return { x: base + (k % 13) * 9 + row * 4, y: PLATFORM_Y - 11 - row * 3 };
+      }
       if (supply) return { x: base + 2 + (k % 3) * 8, y: PLATFORM_Y - 14 - 8 };
       let row = 0, inRow = k;
       while (inRow >= 4 - row && row < 3) { inRow -= 4 - row; row++; }
@@ -139,7 +162,7 @@
       this.drawTrack(ctx, cam);
       for (const b of sc.bridges) this.drawBridge(ctx, b, cam);
       this.drawSmoke(ctx, view.smoke, cam);
-      this.drawTrain(ctx, view.front - cam, view.wheelDist, sc.wagons);
+      this.drawTrain(ctx, view.front - cam, view.wheelDist, sc.wagons, sc.wagonType || 'freight');
       this.drawCargo(ctx, view.front, view.cargo || [], cam);
       for (const f of view.flyers || []) ctx.drawImage(SS.goodIcon(f.good), Math.round(f.x - cam), Math.round(f.y));
       this.strip(ctx, SS.foreground(), scenery * 1.25, H - 40);
@@ -214,7 +237,7 @@
       const cx = Math.round(st.x - cam);
       if (cx < -260 || cx > W + 260) return;
       // Platform: top surface with yellow line, then the stone edge
-      const x0 = cx - 150, x1 = cx + 200;
+      const x0 = cx - 150, x1 = cx + 300;
       ctx.fillStyle = '#c9c1b0';
       ctx.fillRect(x0, PLATFORM_Y, x1 - x0, 4);
       ctx.fillStyle = '#d4b84a';
@@ -335,8 +358,17 @@
     drawPiles(ctx, s, piles, cam) {
       piles.forEach((pile, p) => {
         const x = Math.round(this.pileX(s, p) - cam);
-        if (x < -40 || x > W + 40) return;
-        if (pile.supply) {
+        if (x < -40 || x > W + 140) return;
+        if (pile.good === 'passenger') {
+          // Back row first so the front row stands in front
+          const order = [];
+          for (let k = 0; k < Math.min(26, pile.count); k++) order.push(k);
+          order.sort((a, b) => (Math.floor(b / 13) % 2) - (Math.floor(a / 13) % 2));
+          for (const k of order) {
+            const pos = this.pileItemPos(s, p, k, false, 'passenger');
+            ctx.drawImage(SS.person(k), Math.round(pos.x - cam), pos.y);
+          }
+        } else if (pile.supply) {
           ctx.drawImage(SS.crate(), x, PLATFORM_Y - 14);
           ctx.drawImage(SS.goodIcon(pile.good), x + 10, PLATFORM_Y - 11);
           for (let k = 0; k < 3; k++) {
@@ -359,7 +391,7 @@
       cargo.forEach((good, i) => {
         if (!good) return;
         const p = this.slotPos(front, i);
-        ctx.drawImage(SS.goodIcon(good), Math.round(p.x - cam), p.y);
+        ctx.drawImage(good === 'passenger' ? SS.head(i) : SS.goodIcon(good), Math.round(p.x - cam), p.y);
       });
     }
 
@@ -372,18 +404,18 @@
       ctx.globalAlpha = 1;
     }
 
-    drawTrain(ctx, front, wheelDist, wagons) {
+    drawTrain(ctx, front, wheelDist, wagons, wagonType) {
       const loco = SS.locomotive();
       const lx = Math.round(front) - SS.LOCO_W;
       const ly = RAIL_Y - SS.LOCO_H;
+      const t = SS.WAGON_TYPES[wagonType];
       // Wagons (behind the locomotive)
       for (let i = 0; i < wagons; i++) {
-        const right = lx - 2 - i * (SS.WAGON_W + 2);
-        const left = right - SS.WAGON_W;
-        ctx.drawImage(SS.wagon(i), left, RAIL_Y - SS.WAGON_H);
-        for (const wx of [11, 32]) this.drawWheel(ctx, 'wagon', left + wx, RAIL_Y - 4.5, 4.5, 6, wheelDist);
+        const left = this.wagonLeft(Math.round(front), i);
+        ctx.drawImage(SS.wagonSprite(wagonType, i), left, RAIL_Y - t.h);
+        for (const wx of t.wheels) this.drawWheel(ctx, 'wagon', left + wx, RAIL_Y - 4.5, 4.5, 6, wheelDist);
         ctx.fillStyle = '#2a2a2c';
-        ctx.fillRect(right, RAIL_Y - 10, 3, 1);
+        ctx.fillRect(left + t.w, RAIL_Y - 10, 3, 1);
       }
       ctx.drawImage(loco, lx, ly);
       this.drawWheel(ctx, 'small', lx + 9, RAIL_Y - 4, 4, 6, wheelDist);

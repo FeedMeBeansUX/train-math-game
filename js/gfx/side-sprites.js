@@ -572,6 +572,10 @@
   // ================================================================ goods (8x8 icons)
 
   const GOOD_ICONS = {
+    parcel: [['........', '.PPPsPP.', 'PPPPsPPP', 'ppppsppd', 'ssssssss', 'ppppsppd', 'ppppsppd', 'dddddddd'],
+      { P: '#d9b07a', p: '#b88a54', d: '#8a6438', s: '#ece5d4' }],
+    passenger: [['...hh...', '..hffh..', '...ff...', '..cccc..', '.cccccc.', '.cccccc.', '..cddc..', '..d..d..'],
+      { h: '#5a3a20', f: '#f0c8a0', c: '#2a6fb0', d: '#2f3135' }],
     apple: [['....gl..', '...g....', '.rRrrrd.', 'rRRrrrrd', 'rRrrrrrd', 'rrrrrrrd', '.rrrrdd.', '..dddd..'],
       { r: '#c8382c', R: '#e86a5a', d: '#8a2018', g: '#5a3a20', l: '#5f9143' }],
     chicken: [['.....rr.', '....www.', '....wkwy', 'ww.wwww.', 'wwwwwww.', 'wWwwwww.', '.wWWWw..', '..y..y..'],
@@ -609,6 +613,70 @@
         if (row.length !== 8) throw new Error('Icon ' + good + ' row ' + y + ' has wrong length');
         for (let x = 0; x < 8; x++) if (row[x] !== '.') set(x, y, pal[row[x]]);
       });
+    });
+  }
+
+  // ================================================================ people and passenger carriages
+
+  const HAIR = ['#5a3a20', '#e0c060', '#2a2a2a', '#a04a20', '#c8c8c8', '#7a4a2a'];
+  const SKIN = ['#f0c8a0', '#c08860', '#e8b890', '#8a5a3a', '#f5d5b5'];
+  const SHIRTS = ['#2a6fb0', '#c4483d', '#3f8a4a', '#e0a030', '#8a4a9a', '#e8e2d4', '#d9702a'];
+
+  /** A person standing on the platform (5 x 11). */
+  function person(v) {
+    const hair = HAIR[v % HAIR.length], skin = SKIN[(v * 3) % SKIN.length], shirt = SHIRTS[(v * 5) % SHIRTS.length];
+    const rows = ['.hhh.', 'hfff.', '.fff.', '..f..', 'sssss', 'Sssss', 'Sssss', '.sss.', '.p.p.', '.p.p.', '.k.k.'];
+    const pal = { h: hair, f: skin, s: shirt, S: shadeHex(shirt, 25), p: '#3a3f4a', k: '#1e1e1e' };
+    return makeSprite(5, 11, set => rows.forEach((r, y) => { for (let x = 0; x < 5; x++) if (r[x] !== '.') set(x, y, pal[r[x]]); }));
+  }
+
+  /** A passenger's head seen through a carriage window (4 x 4). */
+  function head(v) {
+    const hair = HAIR[v % HAIR.length], skin = SKIN[(v * 3) % SKIN.length];
+    const rows = ['.hh.', 'hhhh', 'hffh', '.ff.'];
+    const pal = { h: hair, f: skin };
+    return makeSprite(4, 4, set => rows.forEach((r, y) => { for (let x = 0; x < 4; x++) if (r[x] !== '.') set(x, y, pal[r[x]]); }));
+  }
+
+  /**
+   * Wagon types. seats: where a passenger's head goes (relative to the wagon's top-left),
+   * bottom row first so carriages fill like a ten frame.
+   */
+  const seatRow = y => [0, 1, 2, 3, 4].map(j => [4 + j * 8, y]);
+  const WAGON_TYPES = {
+    freight: { w: 44, h: 30, wheels: [11, 32] },
+    coach2: { w: 44, h: 30, wheels: [9, 35], seats: [[10, 12], [30, 12]] },
+    coach5: { w: 44, h: 30, wheels: [9, 35], seats: seatRow(12) },
+    coach10: { w: 44, h: 40, wheels: [9, 35], seats: [...seatRow(21), ...seatRow(11)] },
+  };
+
+  /** Passenger carriage in yellow and blue; coach10 is a double-decker. */
+  function coach(type) {
+    const t = WAGON_TYPES[type];
+    const YEL = '#e8b830', YEL_D = '#c99a20', BLUE = '#2a4f8a', GLASS = '#2f4a63', GLASS_L = '#4d6680';
+    return makeSprite(t.w, t.h, set => {
+      const top = type === 'coach10' ? 2 : 4;
+      const bodyTop = top + 4, bodyBottom = t.h - 7;
+      // Roof
+      set.rect(2, top, t.w - 3, top, '#7b8089');
+      set.rect(1, top + 1, t.w - 2, top + 3, '#5a5f66');
+      // Body
+      for (let y = bodyTop; y <= bodyBottom; y++) set.rect(1, y, t.w - 2, y, y > bodyBottom - 2 ? YEL_D : YEL);
+      set.rect(1, bodyTop, 1, bodyBottom, YEL_D);
+      set.rect(t.w - 2, bodyTop, t.w - 2, bodyBottom, YEL_D);
+      // Windows around each seat
+      const windows = type === 'coach2' ? [[5, 10, 14], [25, 10, 14]] : t.seats.map(([x, y]) => [x - 1, y - 2, 6]);
+      for (const [wx, wy, ww] of windows) {
+        set.rect(wx, wy, wx + ww - 1, wy + 6, GLASS);
+        set.rect(wx, wy, wx + ww - 1, wy, GLASS_L);
+      }
+      // Blue stripes under each window row
+      const rows = Array.from(new Set(windows.map(w => w[1])));
+      for (const wy of rows) set.rect(1, wy + 8, t.w - 2, wy + 9, BLUE);
+      // Chassis and buffers
+      set.rect(3, t.h - 6, t.w - 4, t.h - 5, BLACK);
+      set.rect(0, t.h - 11, 1, t.h - 9, '#9a9a9a');
+      set.rect(t.w - 2, t.h - 11, t.w - 1, t.h - 9, '#9a9a9a');
     });
   }
 
@@ -652,6 +720,12 @@
     puff: r => get('puff' + r, () => puff(Math.max(1, r))),
     goodIcon: g => get('good:' + g, () => goodIcon(g)),
     crate: () => get('crate', crate),
+    person: v => get('person' + (v % 12), () => person(v % 12)),
+    head: v => get('head' + (v % 12), () => head(v % 12)),
+    WAGON_TYPES,
+    wagonSprite: (type, i) => (type === 'freight'
+      ? get('wagon' + (i % WAGON_COLORS.length), () => wagon(WAGON_COLORS[i % WAGON_COLORS.length]))
+      : get('coach:' + type, () => coach(type))),
     GOOD_ICONS,
     bush: v => get('bush' + (v % 3), () => bush(300 + (v % 3))),
   };

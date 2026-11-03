@@ -6,8 +6,10 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–4. Build the track (6 farm puzzles), then play delivery rounds: read the
-orders, load the right number of goods at the warehouse, and drive the train to each station.
+**Current state:** phases 0–5. Build the track (6 farm puzzles), then play delivery rounds: read the
+orders, load the right number of goods at the warehouse, and drive the train to each station. Each round
+practises one skill: counting, addition, subtraction or (optional) multiplication with passenger carriages.
+Parents can set the largest number and the skills with the ⚙ button.
 
 ## Playing
 
@@ -33,6 +35,9 @@ warehouse, click the crates on the platform (or **+**) to load goods; click good
 to put them back. Then pick a station: the train finds its own way over your track and the station takes
 what it ordered. Deliver everything for up to three stars. **Naar de kaart** goes back to the puzzle.
 
+In passenger rounds you choose the number of carriages instead (**−**/**+**); passengers get on when the
+train leaves.
+
 Bridges can only be placed on water; the other pieces only on land.
 Yellow blinking dots show where the track can continue; red dots show ends
 that are blocked or don't fit. Stations get a ✓ once they are connected to the
@@ -47,7 +52,8 @@ the file system.
 ```
 index.html          page shell, loads the scripts in order
 css/style.css       layout and UI styling
-js/core/            pure game logic (no DOM): track pieces, level state, network, routing, delivery rounds
+js/core/            pure game logic (no DOM): track, level state, network, routing, delivery rounds,
+                    maths engine, settings
 js/data/            texts (nl/en), themes and station kinds, goods, levels
 js/gfx/             pixel-art sprites (generated in code), top-down and side-view renderers, mini-map
 js/ui/              screens (puzzle, driving) and input handling
