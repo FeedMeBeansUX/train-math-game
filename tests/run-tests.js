@@ -582,15 +582,101 @@ test('the generator makes valid puzzles in every theme', () => {
 });
 
 console.log('sound and style');
-test('colour style setting: default natural, unknown values ignored', () => {
-  eq(TG.settings.normalize(null).style, 'natural');
-  eq(TG.settings.normalize({ style: 'warm' }).style, 'warm');
-  eq(TG.settings.normalize({ style: 'neon' }).style, 'natural');
+test('colour style setting: default warm, unknown values ignored', () => {
+  eq(TG.settings.normalize(null).style, 'warm');
+  eq(TG.settings.normalize({ style: 'muted' }).style, 'muted');
+  eq(TG.settings.normalize({ style: 'neon' }).style, 'warm');
 });
 test('sound module loads without a browser and ignores calls when audio is unavailable', () => {
   assert(TG.sound && TG.sound.EFFECTS.whistle && TG.sound.EFFECTS.chuff && TG.sound.EFFECTS.star);
   TG.sound.play('whistle');
   TG.sound.play('no-such-sound');
+});
+
+console.log('switches and order');
+test('switches decide where the train goes; a wrong switch blocks the way', () => {
+  const { s } = solved('farm-4');
+  const js = TG.route.junctions(s);
+  eq(js.length, 1);
+  const ends = new Set();
+  let blocked = 0;
+  for (let k = 0; k < 3; k++) {
+    const sw = new Map([[js[0].idx, k]]);
+    const res = TG.route.followTrack(s, 'depot', sw);
+    if (res.end) {
+      ends.add(res.end);
+      const last = res.route.segments[res.route.segments.length - 1];
+      eq(last.to, null, 'ends at the station centre');
+    } else {
+      blocked++;
+      assert(res.blocked, 'blocked position reported');
+    }
+  }
+  eq(Array.from(ends).sort(), ['bakery', 'farm'], 'both stations reachable with the right setting');
+  eq(blocked, 1, 'one setting points away from the start');
+});
+test('without junctions there is only one way to go', () => {
+  const { s } = solved('farm-3');
+  const res = TG.route.followTrack(s, 'depot', new Map());
+  eq(res.end, 'bakery');
+  assert(Math.abs(res.route.length - TG.route.findRoute(s, NW.analyze(s).graph, 'depot', 'bakery').length) < 1e-9, 'same length as the shortest route');
+});
+test('followed routes are continuous on every level with every switch setting', () => {
+  for (const def of TG.LEVELS) {
+    const { s } = solved(def.id);
+    const js = TG.route.junctions(s);
+    const combos = Math.pow(3, js.length);
+    for (let c = 0; c < combos; c++) {
+      const sw = new Map(js.map((j, i) => [j.idx, Math.floor(c / Math.pow(3, i)) % 3]));
+      for (const st of s.stations) {
+        const res = TG.route.followTrack(s, st.id, sw);
+        let prev = TG.route.pointAt(res.route, 0);
+        for (let d = 0.05; d <= res.route.length; d += 0.05) {
+          const p = TG.route.pointAt(res.route, d);
+          assert(Math.hypot(p.x - prev.x, p.y - prev.y) < 0.08, def.id + ' jump');
+          prev = p;
+        }
+        if (res.end) assert(res.end !== st.id, 'never back to the same station');
+      }
+    }
+  }
+});
+test('ordered rounds: a station that is not next refuses and costs a star', () => {
+  const orders = [
+    { id: 'o0', stationId: 'mill', good: 'grain', amount: 2, delivered: 0 },
+    { id: 'o1', stationId: 'farm', good: 'hay', amount: 1, delivered: 0 },
+  ];
+  const r = RD().createRound(orders, { ordered: true, preload: ['grain', 'grain', 'hay'] });
+  eq(RD().checkTurn(r, 'farm').stationId, 'mill', 'farm is too early');
+  eq(r.orderMistakes, 1);
+  eq(RD().checkTurn(r, 'mill'), null);
+  RD().deliverAt(r, 'mill');
+  eq(RD().checkTurn(r, 'farm'), null, 'now it is the farm');
+  RD().deliverAt(r, 'farm');
+  RD().recordDeparture(r, true);
+  eq(RD().stars(r), 2);
+});
+test('ordered plans: shuffled orders with a note, only for goods rounds with two or more orders', () => {
+  const st = { maxNumber: 20, adaptive: false, ordered: true, skills: { count: true, add: true, subtract: true, multiply: true, divide: true } };
+  const s = L.createLevel(TG.LEVELS[5]);
+  let seen = 0;
+  for (let seed = 1; seed < 60; seed++) {
+    const p = M().planRound(s, st, seed);
+    if (p.orders.length >= 2 && p.mode === 'goods') {
+      assert(p.ordered, p.kind + ' should be ordered');
+      assert(p.notes.some(n => n.key === 'orderedNote'));
+      seen++;
+    } else {
+      assert(!p.ordered, p.kind + ' should not be ordered');
+    }
+  }
+  assert(seen > 10);
+});
+test('settings: switches and ordered are off by default', () => {
+  const d = TG.settings.normalize(null);
+  eq(d.switches, false);
+  eq(d.ordered, false);
+  eq(TG.settings.normalize({ switches: true }).switches, true);
 });
 
 console.log('levels');

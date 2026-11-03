@@ -145,8 +145,15 @@ Each phase ends with something playable in the browser.
   art, with live preview); a cleaner junction piece (sleepers only under the main line); wagons sway a
   little while driving; top-down locomotive and wagon sprites for the victory lap.
 
-### Phase 9 — Switches and ordering puzzles
-- Switch pieces the player sets before departure; deliveries that must happen in a set order.
+### Phase 9 — Switches and ordering puzzles ✅
+- **Switches** (parent setting "Wissels zelf zetten"): junctions become switches. Instead of choosing a
+  station, the player clicks the switch tiles (each with its own colour, matching a frame on the mini-map)
+  and sees where the train will go: the predicted path in yellow on the mini-map and "De trein gaat naar
+  de Boerderij." Then **Vertrek!** — the train follows the track as the switches are set. When a switch
+  points the other way: "Een wissel staat verkeerd." (`TG.route.followTrack`).
+- **Orders in a fixed order** (parent setting): orders are numbered and the next one is highlighted; a
+  station that is not next says "Eerst naar de Molen!" and keeps its goods in the train (a star less).
+- Default colour style: warm.
 
 ### Later / optional
 - Level editor, extra train types (passengers, freight).

@@ -509,3 +509,36 @@ html[data-style="muted"] canvas { filter: saturate(0.72) contrast(0.95) brightne
 .stars .star.on { color: var(--accent); }
 @keyframes star-pop { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .stars .star { animation: none; } }
+
+/* ------------------------------------------------------------ switches and ordered orders */
+
+.switches { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 10px; }
+.switch-btn {
+  padding: 3px;
+  background: #343a43;
+  border: 4px solid;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.switch-btn:hover:not(:disabled) { background: #4d4420; }
+.switch-btn:disabled { opacity: 0.5; cursor: default; }
+.switch-btn canvas { display: block; width: 64px; height: 64px; image-rendering: pixelated; }
+.prediction { margin: 0 0 10px; }
+.prediction.ok .main::before { content: '➜ '; color: var(--ok); }
+.prediction.warn .main { color: #f08a80; }
+.depart-btn { width: 100%; font-size: 20px; }
+#destinations .hint { margin: 0; font-size: 14px; color: var(--muted); }
+
+.orders ul.ordered li { grid-template-columns: 24px 30px 1fr auto; }
+.orders .step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #1b1606;
+  background: #8a7a50;
+}
+.orders li.current .step { background: var(--accent); box-shadow: 0 0 0 2px #fff3c4; }
+.orders li.current .sentence .main { color: #fff3c4; }

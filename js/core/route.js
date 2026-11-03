@@ -69,6 +69,66 @@
     return { x, y, from, to, len, type: c.type, stationId: c.stationId };
   }
 
+  /** Fill in each segment's start distance and the total length. */
+  function finishRoute(segments, fromId, toId) {
+    let length = 0;
+    for (const s of segments) {
+      s.start = length;
+      length += s.len;
+    }
+    return { from: fromId, to: toId, segments, length };
+  }
+
+  /** Junction tiles of a level (the tiles that can be switches), in reading order. */
+  function junctions(state) {
+    const out = [];
+    for (let y = 0; y < state.h; y++) {
+      for (let x = 0; x < state.w; x++) {
+        const c = state.cells[y * state.w + x];
+        if (c && c.type === 'junction') out.push({ x, y, idx: y * state.w + x });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Switches: drive out of a terminal station and follow the track, taking at
+   * every junction only the link the switch is set to (switches: Map of tile
+   * index -> link index 0-2, default 0). Returns
+   *   { route, end: stationId }                       the station the train reaches, or
+   *   { route, end: null, blocked: { x, y } }         a switch points the other way (route stops there).
+   */
+  function followTrack(state, fromId, switches) {
+    const from = L.stationById(state, fromId);
+    const startCell = L.cellAt(state, from.x, from.y);
+    const ports = T.ports(startCell.type, startCell.rot);
+    if (ports.length !== 1) return null; // only terminal stations
+    const segs = [makeSegment(state, from.x, from.y, null, ports[0])];
+    let x = from.x, y = from.y, d = ports[0];
+    for (let steps = 0; steps < state.w * state.h * 3; steps++) {
+      const nx = x + T.DX[d], ny = y + T.DY[d];
+      const e = T.opposite(d);
+      const c = L.cellAt(state, nx, ny);
+      if (!c || !T.ports(c.type, c.rot).includes(e)) {
+        return { route: finishRoute(segs, fromId, null), end: null, blocked: { x, y } };
+      }
+      if (c.stationId) {
+        segs.push(makeSegment(state, nx, ny, e, null));
+        return { route: finishRoute(segs, fromId, c.stationId), end: c.stationId, blocked: null };
+      }
+      let links = T.links(c.type, c.rot).filter(l => l.length === 2);
+      if (c.type === 'junction') links = [links[(switches && switches.get(ny * state.w + nx)) || 0]];
+      const link = links.find(l => l.includes(e));
+      if (!link) return { route: finishRoute(segs, fromId, null), end: null, blocked: { x: nx, y: ny } };
+      const out = link[0] === e ? link[1] : link[0];
+      segs.push(makeSegment(state, nx, ny, e, out));
+      x = nx;
+      y = ny;
+      d = out;
+    }
+    return null;
+  }
+
   function buildRoute(state, ports, fromId, toId) {
     const p = ports.map(id => decode(state, id));
     const segments = [makeSegment(state, p[0].x, p[0].y, null, p[0].d)];
@@ -84,12 +144,7 @@
         i += 1;
       }
     }
-    let length = 0;
-    for (const s of segments) {
-      s.start = length;
-      length += s.len;
-    }
-    return { from: fromId, to: toId, segments, length };
+    return finishRoute(segments, fromId, toId);
   }
 
   function edgePoint(x, y, d) {
@@ -150,5 +205,5 @@
     return out;
   }
 
-  TG.route = { findRoute, pointAt, segmentPoint, spans, CURVE_LEN };
+  TG.route = { findRoute, followTrack, junctions, pointAt, segmentPoint, spans, CURVE_LEN };
 })(globalThis.TG = globalThis.TG || {});

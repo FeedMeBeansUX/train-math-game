@@ -789,6 +789,18 @@
     track: (type, rot, platformDir) =>
       get('track:' + type + ':' + rot + ':' + platformDir, () => track(type, rot, { platformDir })),
     building: kind => get('building:' + kind, () => building(TG.themes.stationKind(kind).art)),
+    /** A junction drawn as a switch: the whole piece faded, the way it is set on top. */
+    switchTile: (rot, linkIndex) => get('switch:' + rot + ':' + linkIndex, () => {
+      const c = createCanvas(TILE, TILE);
+      const ctx = c.getContext('2d');
+      ctx.globalAlpha = 0.35;
+      ctx.drawImage(TG.sprites.track('junction', rot), 0, 0);
+      ctx.globalAlpha = 1;
+      const link = TG.track.links('junction', rot)[linkIndex];
+      const p = TG.generator.pieceFor(new Set(link), false);
+      ctx.drawImage(TG.sprites.track(p.type, p.rot), 0, 0);
+      return c;
+    }),
     topTrain: (kind, index) => get('top:' + kind + ':' + ((index || 0) % 3), () => topTrain(kind, index || 0)),
   };
 })(globalThis.TG = globalThis.TG || {});

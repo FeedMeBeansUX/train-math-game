@@ -84,6 +84,18 @@
     unlockText:      { nl: 'Je kunt nu spelen in: {t}', en: 'You can now play: {t}' },
     playNow:         { nl: 'Speel nu', en: 'Play now' },
     later:           { nl: 'Later', en: 'Later' },
+    // Switches and ordered deliveries
+    switchesTitle:   { nl: 'Wissels', en: 'Switches' },
+    switchHint:      { nl: 'Klik op een wissel om hem om te zetten.', en: 'Click a switch to change it.' },
+    goesTo:          { nl: 'De trein gaat naar {s}.', en: 'The train will go to {s}.' },
+    switchWrong:     { nl: 'Een wissel staat verkeerd.', en: 'A switch is set the wrong way.' },
+    depart:          { nl: 'Vertrek!', en: 'Depart!' },
+    notYet:          { nl: 'Eerst naar {s}!', en: 'First go to {s}!' },
+    orderedNote:     { nl: 'Doe de opdrachten op volgorde.', en: 'Do the orders in order.' },
+    wrongStationOne: { nl: 'Je was {k} keer te vroeg bij een station.', en: 'You were at a station too early {k} time.' },
+    wrongStationMany:{ nl: 'Je was {k} keer te vroeg bij een station.', en: 'You were at a station too early {k} times.' },
+    switchesSetting: { nl: 'Wissels zelf zetten (in plaats van een station kiezen)', en: 'Set the switches yourself (instead of choosing a station)' },
+    orderedSetting:  { nl: 'Opdrachten op volgorde', en: 'Orders in a fixed order' },
     // Settings (for parents)
     settings:        { nl: 'Instellingen', en: 'Settings' },
     settingsIntro:   { nl: 'Voor ouders. Geldt vanaf de volgende ronde.', en: 'For parents. Applies from the next round.' },

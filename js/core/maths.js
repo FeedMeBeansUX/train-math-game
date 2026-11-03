@@ -183,6 +183,13 @@
       }
     }
     plan.manual = kind === 'divide' || (!!settings.manualUnload && plan.mode === 'goods');
+    // Orders in a fixed order (setting): shuffle them so the order differs from the station list
+    plan.ordered = !!settings.ordered && plan.mode === 'goods' && plan.orders.length >= 2;
+    if (plan.ordered) {
+      plan.orders = shuffle(rand, plan.orders);
+      plan.orders.forEach((o, i) => { o.id = 'o' + i; });
+      plan.notes.push({ key: 'orderedNote', vars: {} });
+    }
     return plan;
   }
 

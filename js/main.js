@@ -331,6 +331,8 @@
     diff.textContent = '';
     diff.append(checkbox('adaptive', '1', cur.adaptive, i18n.t('adaptive')));
     diff.append(checkbox('manualUnload', '1', cur.manualUnload, i18n.t('manualUnload')));
+    diff.append(checkbox('switches', '1', cur.switches, i18n.t('switchesSetting')));
+    diff.append(checkbox('ordered', '1', cur.ordered, i18n.t('orderedSetting')));
     $('style-legend').textContent = i18n.t('colorStyle');
     const styleBox = $('style-options');
     styleBox.textContent = '';
@@ -385,6 +387,8 @@
       skills,
       adaptive: form.querySelector('input[name=adaptive]').checked,
       manualUnload: form.querySelector('input[name=manualUnload]').checked,
+      switches: form.querySelector('input[name=switches]').checked,
+      ordered: form.querySelector('input[name=ordered]').checked,
       style: (form.querySelector('input[name=style]:checked') || {}).value,
     });
     applyStyle();

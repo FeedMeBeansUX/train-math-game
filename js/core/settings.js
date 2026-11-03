@@ -15,7 +15,9 @@
     skills: { count: true, add: true, subtract: true, multiply: false, divide: false },
     adaptive: true,       // levels follow the player's results (TG.progress)
     manualUnload: false,  // the player decides how many goods come off at each station
-    style: 'natural',
+    style: 'warm',
+    switches: false,      // junctions are switches the player sets (instead of picking a station)
+    ordered: false,       // orders must be delivered in the given order
   };
 
   /** Make any (possibly old or broken) settings object valid. */
@@ -26,7 +28,10 @@
       adaptive: DEFAULTS.adaptive,
       manualUnload: DEFAULTS.manualUnload,
       style: DEFAULTS.style,
+      switches: DEFAULTS.switches,
+      ordered: DEFAULTS.ordered,
     };
+    for (const k of ['switches', 'ordered']) if (s && typeof s[k] === 'boolean') out[k] = s[k];
     if (s && STYLES.includes(s.style)) out.style = s.style;
     if (s && MAX_OPTIONS.includes(s.maxNumber)) out.maxNumber = s.maxNumber;
     if (s && s.skills) for (const k of SKILLS) if (typeof s.skills[k] === 'boolean') out.skills[k] = s.skills[k];

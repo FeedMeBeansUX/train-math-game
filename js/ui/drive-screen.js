@@ -33,6 +33,7 @@
   const CHIMNEY_DX = -10;  // chimney position relative to the train's front
   const CHIMNEY_Y = SS.RAIL_Y - SS.LOCO_H + 1;
   const FLY_TIME = 0.45;
+  const SWITCH_COLORS = ['#e0473a', '#2a6fb0', '#a05ac8', '#e0a030', '#3f8a4a'];
 
   /** Smooth start and stop over distance D: accelerate, cruise, brake. */
   function motion(D) {
@@ -118,6 +119,13 @@
       this.startId = state.stations[0].id;
       this.sceneryOffset = 0;
       this.minimap.setLevel(state);
+      // Switch mode (parent setting): junctions are switches the player sets before leaving
+      this.switchTiles = TG.settings.get().switches
+        ? TG.route.junctions(state).map((j, i) => Object.assign(j, { color: SWITCH_COLORS[i % SWITCH_COLORS.length] }))
+        : [];
+      this.switchMode = this.switchTiles.length > 0;
+      this.switchState = new Map(this.switchTiles.map(j => [j.idx, 0]));
+      this.preview = null;
       this.active = true;
       this.newRound();
       this.layout();
@@ -165,9 +173,30 @@
       this.buildSigns();
     }
 
-    depart(toId) {
+    /** Switch mode: leave along the track as the switches are set. */
+    departAlongTrack() {
       if (this.trip || this.busy) return;
-      const route = R.findRoute(this.state, this.graph, this.current, toId);
+      const res = R.followTrack(this.state, this.current, this.switchState);
+      if (!res || !res.end) {
+        this.messages = [Object.assign(i18n.both('switchWrong'), { kind: 'warn' })];
+        TG.sound.play('bad');
+        this.refresh();
+        return;
+      }
+      this.depart(res.end, res.route);
+    }
+
+    toggleSwitch(sw) {
+      if (this.trip || this.busy) return;
+      this.switchState.set(sw.idx, (this.switchState.get(sw.idx) + 1) % 3);
+      TG.sound.play('rotate');
+      this.messages = [];
+      this.refresh();
+    }
+
+    depart(toId, routeOverride) {
+      if (this.trip || this.busy) return;
+      const route = routeOverride || R.findRoute(this.state, this.graph, this.current, toId);
       if (!route) return;
       RD.recordDeparture(this.round, this.current === this.startId);
       const D = route.length * PX_PER_TILE;
@@ -231,6 +260,15 @@
      * (division rounds or the parent setting) the player first chooses how many come off.
      */
     unloadHere() {
+      // Ordered rounds: a station that is not next does not take anything yet
+      const early = RD.checkTurn(this.round, this.current);
+      if (early) {
+        const k = L.stationById(this.state, early.stationId).kind;
+        this.messages = [Object.assign(i18n.both('notYet', { s: l => i18n.stationPhrase(k, l) }), { kind: 'warn' })];
+        TG.sound.play('mistake');
+        this.refresh();
+        return;
+      }
       const order = RD.openOrderAt(this.round, this.current);
       if (this.plan.manual && order && RD.count(this.round, order.good) > 0) {
         this.unloading = { stationId: this.current, good: order.good, n: 0 };
@@ -514,7 +552,11 @@
       });
       const tr = this.trip;
       const dist = tr ? (tr.lastPos / tr.D) * tr.route.length : 0;
-      this.minimap.draw(tr ? tr.route : null, dist, this.current, time);
+      this.minimap.draw(tr ? tr.route : null, dist, this.current, time, this.switchMode ? {
+        switches: this.switchTiles,
+        preview: this.preview && this.preview.route,
+        blocked: this.preview && this.preview.blocked,
+      } : null);
       this.positionSigns();
     }
 
@@ -613,11 +655,13 @@
       const box = this.dom.orders;
       box.textContent = '';
       box.append(el('h2', null, i18n.t('orders')));
-      const list = el('ul');
-      for (const o of this.round.orders) {
+      const list = el('ul', this.round.ordered ? 'ordered' : '');
+      const next = RD.nextOrder(this.round);
+      this.round.orders.forEach((o, i) => {
         const st = L.stationById(this.state, o.stationId);
         const done = RD.remaining(o) === 0;
-        const li = el('li', done ? 'done' : '');
+        const li = el('li', done ? 'done' : this.round.ordered && o === next ? 'current' : '');
+        if (this.round.ordered) li.append(el('span', 'step', String(i + 1)));
         li.append(goodIconEl(o.good));
         const hide = this.plan.hideAmounts;
         li.append(sentenceEl(i18n.both(hide ? 'orderLineNoNumber' : 'orderLine', {
@@ -629,7 +673,7 @@
         const status = el('span', 'order-status', done ? '✓' : progress);
         li.append(status);
         list.append(li);
-      }
+      });
       box.append(list);
       for (const note of this.plan.notes) {
         const v = note.vars;
@@ -767,7 +811,46 @@
       box.append(prow);
     }
 
+    /** Switch mode: switch buttons, where the train will go, and a Depart button. */
+    refreshSwitches() {
+      const d = this.dom;
+      d.destinations.textContent = '';
+      d.whereTo.textContent = i18n.t('switchesTitle');
+      this.preview = !this.trip ? R.followTrack(this.state, this.current, this.switchState) : null;
+      const box = el('div', 'switches');
+      for (const sw of this.switchTiles) {
+        const c = L.cellAt(this.state, sw.x, sw.y);
+        const btn = el('button', 'switch-btn');
+        btn.type = 'button';
+        btn.style.borderColor = sw.color;
+        btn.disabled = !!this.trip || this.busy;
+        btn.setAttribute('aria-label', i18n.t('switchesTitle') + ' ' + (this.switchTiles.indexOf(sw) + 1));
+        const cv = el('canvas');
+        cv.width = S.TILE;
+        cv.height = S.TILE;
+        const cx = cv.getContext('2d');
+        cx.drawImage(S.ground('grass'), 0, 0);
+        cx.drawImage(S.switchTile(c.rot, this.switchState.get(sw.idx)), 0, 0);
+        btn.append(cv);
+        btn.addEventListener('click', () => this.toggleSwitch(sw));
+        box.append(btn);
+      }
+      d.destinations.append(el('p', 'hint', i18n.t('switchHint')), box);
+      if (!this.trip && this.preview) {
+        const to = this.preview.end && L.stationById(this.state, this.preview.end);
+        d.destinations.append(sentenceEl(to
+          ? i18n.both('goesTo', { s: l => i18n.stationPhrase(to.kind, l) })
+          : i18n.both('switchWrong'), to ? 'prediction ok' : 'prediction warn'));
+      }
+      const go = el('button', 'btn primary depart-btn', i18n.t('depart'));
+      go.type = 'button';
+      go.disabled = !!this.trip || this.busy || !(this.preview && this.preview.end);
+      go.addEventListener('click', () => this.departAlongTrack());
+      d.destinations.append(go);
+    }
+
     refreshDestinations() {
+      if (this.switchMode) return this.refreshSwitches();
       const d = this.dom;
       d.destinations.textContent = '';
       for (const st of this.state.stations) {
@@ -807,6 +890,8 @@
       for (const lo of left) {
         d.roundText.append(sentenceEl(i18n.both(lo.n === 1 ? 'leftOne' : 'leftMany', { k: lo.n, goods: l => i18n.goodsWord(lo.good, lo.n, l) })));
       }
+      const early = this.round.orderMistakes || 0;
+      if (early > 0) d.roundText.append(sentenceEl(i18n.both(early === 1 ? 'wrongStationOne' : 'wrongStationMany', { k: early })));
       const empty = this.round.emptySeats || 0;
       if (empty > 0) d.roundText.append(sentenceEl(i18n.both(empty === 1 ? 'emptySeatsOne' : 'emptySeatsMany', { k: empty })));
       // Progress: the result moves this skill's level (adaptive difficulty)

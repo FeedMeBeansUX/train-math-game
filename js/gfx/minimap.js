@@ -65,14 +65,36 @@
       ctx.fillRect(Math.floor(p.x * PX - size / 2 + 0.5), Math.floor(p.y * PX - size / 2 + 0.5), size, size);
     }
 
-    /** route may be null; dist = how far the train is along it. */
-    draw(route, dist, currentId, time) {
+    /**
+     * route may be null; dist = how far the train is along it.
+     * extra (switch mode): { switches: [{x, y, color}], preview: route | null, blocked: {x, y} | null }
+     */
+    draw(route, dist, currentId, time, extra) {
       const ctx = this.ctx;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(this.base, 0, 0);
-      if (route) {
+      const path = route || (extra && extra.preview);
+      if (path) {
         ctx.fillStyle = COLORS.route;
-        for (let d = 0; d <= route.length; d += 0.08) this.dot(ctx, R.pointAt(route, d), 1);
+        for (let d = 0; d <= path.length; d += 0.08) this.dot(ctx, R.pointAt(path, d), 1);
+      }
+      if (extra) {
+        for (const sw of extra.switches || []) {
+          ctx.fillStyle = sw.color;
+          const x = sw.x * PX, y = sw.y * PX;
+          ctx.fillRect(x, y, PX, 1);
+          ctx.fillRect(x, y + PX - 1, PX, 1);
+          ctx.fillRect(x, y, 1, PX);
+          ctx.fillRect(x + PX - 1, y, 1, PX);
+        }
+        if (extra.blocked && !route && Math.floor(time * 3) % 2 === 0) {
+          ctx.fillStyle = '#e0473a';
+          const bx = extra.blocked.x * PX, by = extra.blocked.y * PX;
+          for (let i = 0; i < PX; i++) {
+            ctx.fillRect(bx + i, by + i, 1, 1);
+            ctx.fillRect(bx + PX - 1 - i, by + i, 1, 1);
+          }
+        }
       }
       for (const st of this.state.stations) {
         ctx.fillStyle = st.isStart ? COLORS.start : COLORS.station;

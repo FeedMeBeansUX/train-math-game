@@ -6,12 +6,13 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–8. Build the track (6 hand-made puzzles, then endless generated puzzles that
+**Current state:** all planned phases (0–9) are done. Build the track (6 hand-made puzzles, then endless generated puzzles that
 match the player's level), then play delivery rounds: read the orders, load the right number of goods at
 the warehouse, and drive the train to each station. Each round practises one skill: counting, addition,
 subtraction, multiplication (passenger carriages) or division (share parcels fairly). Four themes — farm,
 construction, racing and town — unlock with the stars you earn. Difficulty adapts to the results; parents
-can set the largest number, the skills, unloading by hand and a colour style, and see progress with ⚙.
+can set the largest number, the skills, unloading by hand, switches, orders in a fixed order and a colour
+style, and see progress with ⚙.
 Sound effects can be switched off with 🔊.
 
 ## Playing
@@ -39,7 +40,8 @@ to put them back. Then pick a station: the train finds its own way over your tra
 what it ordered. Deliver everything for up to three stars. **Naar de kaart** goes back to the puzzle.
 
 In passenger rounds you choose the number of carriages instead (**−**/**+**); passengers get on when the
-train leaves.
+train leaves. With switches turned on (⚙), you set the switches instead of choosing a station: the
+mini-map shows where the train will go, then press **Vertrek!**.
 
 Bridges can only be placed on water; the other pieces only on land.
 Yellow blinking dots show where the track can continue; red dots show ends

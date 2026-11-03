@@ -32,6 +32,8 @@
       departuresFromStart: 0,
       emptySeats: null,
       unloadMistakes: 0,
+      ordered: !!opts.ordered,
+      orderMistakes: 0,
     };
   }
 
@@ -121,6 +123,24 @@
     return { deliveries, removed };
   }
 
+  /** In ordered rounds: the order that is next (the first one not done yet). */
+  function nextOrder(round) {
+    return round.orders.find(o => remaining(o) > 0) || null;
+  }
+
+  /**
+   * In ordered rounds a station only accepts goods when it is its turn. Returns the
+   * order that should come first when this station is too early (and counts a mistake), else null.
+   */
+  function checkTurn(round, stationId) {
+    if (!round.ordered) return null;
+    const next = nextOrder(round);
+    const here = round.orders.some(o => o.stationId === stationId && remaining(o) > 0);
+    if (!here || !next || next.stationId === stationId) return null;
+    round.orderMistakes++;
+    return next;
+  }
+
   /** The open order at this station for one of the goods, or null. */
   function openOrderAt(round, stationId) {
     return round.orders.find(o => o.stationId === stationId && remaining(o) > 0) || null;
@@ -168,7 +188,8 @@
       + (round.load.length > 0 ? 1 : 0)
       + (round.emptySeats > 0 ? 1 : 0)
       + (round.unloadMistakes > 0 ? 1 : 0)
-      + (round.unloadMistakes > 2 ? 1 : 0);
+      + (round.unloadMistakes > 2 ? 1 : 0)
+      + (round.orderMistakes > 0 ? 1 : 0);
     return Math.max(1, 3 - mistakes);
   }
 
@@ -182,6 +203,7 @@
   TG.round = {
     WAGON_CAPACITY,
     createRound, setWagons, waitingPassengers, board, remaining, goodsNeeded, count, isFull,
-    loadOne, unloadOne, deliverAt, openOrderAt, unloadAt, recordDeparture, isComplete, stars, leftovers,
+    loadOne, unloadOne, deliverAt, openOrderAt, unloadAt, nextOrder, checkTurn, recordDeparture, isComplete,
+    stars, leftovers,
   };
 })(globalThis.TG = globalThis.TG || {});
