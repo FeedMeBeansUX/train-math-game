@@ -23,6 +23,14 @@
     again:           { nl: 'Nog een keer', en: 'Play again' },
     lastLevel:       { nl: 'Dit was de laatste puzzel. De treinen komen er snel aan!', en: 'That was the last puzzle. The trains are coming soon!' },
     language:        { nl: 'English', en: 'Nederlands' },
+    drive:           { nl: 'Ga rijden!', en: "Let's drive!" },
+    backToMap:       { nl: 'Naar de kaart', en: 'Back to the map' },
+    whereTo:         { nl: 'Waar gaat de trein heen?', en: 'Where should the train go?' },
+    here:            { nl: 'hier', en: 'here' },
+    map:             { nl: 'Kaart', en: 'Map' },
+    atStation:       { nl: 'De trein staat bij {s}.', en: 'The train is at {s}.' },
+    goingTo:         { nl: 'De trein rijdt naar {s}.', en: 'The train is going to {s}.' },
+    arrived:         { nl: 'De trein is bij {s}!', en: 'The train has arrived at {s}!' },
   };
 
   const NAMES = {
@@ -53,10 +61,18 @@
     return lang === 'nl' ? 'en' : 'nl';
   }
 
-  /** UI string in the current language. */
-  function t(key) {
+  /** UI string in the current language; {name} placeholders are filled from vars. */
+  function t(key, vars) {
     const s = UI[key];
-    return s ? s[lang] : key;
+    let out = s ? s[lang] : key;
+    if (vars) for (const k in vars) out = out.split('{' + k + '}').join(vars[k]);
+    return out;
+  }
+
+  /** Station name with article for use in a sentence: "de Boerderij" / "the Farm". */
+  function stationPhrase(kind) {
+    const n = TG.themes.stationKind(kind).name;
+    return lang === 'nl' ? n.article + ' ' + n.nl : 'the ' + n.en;
   }
 
   /** A bilingual name: { main, second } in the current/other language. */
@@ -65,5 +81,5 @@
     return { main: e[lang], second: e[other()] };
   }
 
-  TG.i18n = { UI, NAMES, t, name, setLang, getLang };
+  TG.i18n = { UI, NAMES, t, name, stationPhrase, setLang, getLang };
 })(globalThis.TG = globalThis.TG || {});

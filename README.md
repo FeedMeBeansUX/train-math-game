@@ -6,7 +6,8 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–2. The track puzzle is playable: 6 farm levels.
+**Current state:** phases 0–3. Build the track (6 farm puzzles), then drive the train between the
+stations in a side view with a mini-map. Loading goods (the maths part) is next.
 
 ## Playing
 
@@ -27,6 +28,9 @@ See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 | Take track back | right click (or `Delete` while hovering) |
 | Put the piece down | `Esc` |
 
+After solving a puzzle press **Ga rijden!** and pick a station: the train finds its own way over
+your track. **Naar de kaart** goes back to the puzzle.
+
 Bridges can only be placed on water; the other pieces only on land.
 Yellow blinking dots show where the track can continue; red dots show ends
 that are blocked or don't fit. Stations get a ✓ once they are connected to the
@@ -41,10 +45,10 @@ the file system.
 ```
 index.html          page shell, loads the scripts in order
 css/style.css       layout and UI styling
-js/core/            pure game logic (no DOM): track pieces, level state, network analysis
+js/core/            pure game logic (no DOM): track pieces, level state, network analysis, routing
 js/data/            texts (nl/en), themes and station kinds, levels
-js/gfx/             pixel-art sprites (generated in code) and the top-down renderer
-js/ui/              screens and input handling
+js/gfx/             pixel-art sprites (generated in code), top-down and side-view renderers, mini-map
+js/ui/              screens (puzzle, driving) and input handling
 js/main.js          start-up
 tests/run-tests.js  tests for js/core and the level data
 assets/fonts/       Andika font (SIL Open Font License), designed for beginning readers

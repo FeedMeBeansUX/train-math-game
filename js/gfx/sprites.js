@@ -613,7 +613,7 @@
   const ROCK_VARIANTS = 2;
 
   TG.sprites = {
-    TILE, C, createCanvas, makeSprite,
+    TILE, C, createCanvas, makeSprite, shade, shadeHex, parseColor,
     terrain,
     ground: kind => get('ground:' + kind, () => groundTile(kind)),
     tree: v => get('tree' + (v % TREE_VARIANTS), () =>

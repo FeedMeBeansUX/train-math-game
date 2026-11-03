@@ -15,6 +15,7 @@ const FILES = [
   'js/core/track.js',
   'js/core/level.js',
   'js/core/network.js',
+  'js/core/route.js',
   'js/data/themes.js',
   'js/data/i18n.js',
   'js/data/levels.js',
@@ -152,6 +153,65 @@ test('free open ends are reported for the frontier', () => {
   const a = NW.analyze(s);
   assert(a.openEnds.some(o => o.x === 0 && o.y === 1 && o.dir === T.E && !o.blocked));
   assert(a.connectedStations.has('depot') && !a.connectedStations.has('farm'));
+});
+
+console.log('route');
+function solved(id) {
+  const def = TG.LEVELS.find(l => l.id === id);
+  const s = L.createLevel(def);
+  for (const p of def.solution) L.place(s, p.x, p.y, p.type, p.rot);
+  return { s, a: NW.analyze(s) };
+}
+function near(a, b, eps) {
+  return Math.abs(a - b) < (eps || 1e-6);
+}
+test('straight route: length and end points', () => {
+  const { s, a } = solved('farm-1');
+  const r = TG.route.findRoute(s, a.graph, 'depot', 'farm');
+  assert(r, 'route found');
+  assert(near(r.length, 7), 'length ' + r.length);
+  const p0 = TG.route.pointAt(r, 0), p1 = TG.route.pointAt(r, r.length);
+  assert(near(p0.x, 4.5) && near(p0.y, 5.5), 'starts at depot centre');
+  assert(near(p1.x, 11.5) && near(p1.y, 5.5), 'ends at farm centre');
+  assert(near(p0.heading, 0), 'heading east');
+});
+test('routes are continuous (no jumps) on every level, between all station pairs', () => {
+  for (const def of TG.LEVELS) {
+    const { s, a } = solved(def.id);
+    for (const from of s.stations) {
+      for (const to of s.stations) {
+        if (from === to) continue;
+        const r = TG.route.findRoute(s, a.graph, from.id, to.id);
+        assert(r, def.id + ': no route ' + from.id + ' -> ' + to.id);
+        let prev = TG.route.pointAt(r, 0);
+        for (let d = 0.02; d <= r.length; d += 0.02) {
+          const p = TG.route.pointAt(r, d);
+          const jump = Math.hypot(p.x - prev.x, p.y - prev.y);
+          assert(jump < 0.03, def.id + ' ' + from.id + '->' + to.id + ': jump ' + jump.toFixed(3) + ' at ' + d.toFixed(2));
+          prev = p;
+        }
+        const end = TG.route.pointAt(r, r.length);
+        assert(near(end.x, to.x + 0.5) && near(end.y, to.y + 0.5), def.id + ': ends at destination');
+      }
+    }
+  }
+});
+test('route through a junction picks the right branch', () => {
+  const { s, a } = solved('farm-4');
+  const r = TG.route.findRoute(s, a.graph, 'depot', 'bakery');
+  assert(r.segments.some(g => g.type === 'junction'), 'uses the junction');
+  assert(!r.segments.some(g => g.y < 5 && g.x === 7), 'does not go up to the farm');
+});
+test('bridge spans are reported', () => {
+  const { s, a } = solved('farm-river');
+  const r = TG.route.findRoute(s, a.graph, 'depot', 'market');
+  const sp = TG.route.spans(r, 'bridge');
+  eq(sp.length, 1);
+  assert(near(sp[0].end - sp[0].start, 2), 'two bridge tiles');
+});
+test('no route when not connected', () => {
+  const s = L.createLevel(TG.LEVELS[0]);
+  eq(TG.route.findRoute(s, NW.analyze(s).graph, 'depot', 'farm'), null);
 });
 
 console.log('levels');

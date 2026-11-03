@@ -39,6 +39,7 @@
       this.particles = [];
       this.solved = false;
       this.lastTime = 0;
+      this.active = true;
       this.bindInput();
       window.addEventListener('resize', () => this.layout());
       requestAnimationFrame(t => this.frame(t));
@@ -58,6 +59,12 @@
       this.buildLabels();
       this.refreshPanel();
       this.layout();
+    }
+
+    /** Pause input and drawing while another screen is shown. */
+    setActive(on) {
+      this.active = on;
+      if (!on) this.hover = null;
     }
 
     restart() {
@@ -234,7 +241,7 @@
       }, { passive: false });
 
       window.addEventListener('keydown', e => {
-        if (!this.state || this.solved || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (!this.state || !this.active || this.solved || e.ctrlKey || e.metaKey || e.altKey) return;
         const n = parseInt(e.key, 10);
         if (n >= 1 && n <= this.types.length) this.select(this.types[n - 1]);
         else if (e.key === 'r' || e.key === 'R') this.rotateSelected(e.shiftKey ? -1 : 1);
@@ -292,9 +299,10 @@
     }
 
     frame(t) {
+      requestAnimationFrame(tt => this.frame(tt)); // first, so one bad frame cannot stop the loop
       const dt = Math.min(0.05, (t - this.lastTime) / 1000 || 0);
       this.lastTime = t;
-      if (this.state) {
+      if (this.state && this.active) {
         const h = this.state.h * S.TILE;
         for (const p of this.particles) {
           p.x += p.vx * dt;
@@ -310,7 +318,6 @@
           time: t / 1000,
         });
       }
-      requestAnimationFrame(tt => this.frame(tt));
     }
   }
 

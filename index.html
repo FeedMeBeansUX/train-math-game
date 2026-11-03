@@ -16,15 +16,16 @@
       </div>
     </header>
 
-    <main id="main">
-      <section id="stage">
-        <div id="board">
+    <!-- Track puzzle (top-down) -->
+    <main id="screen-build" class="screen">
+      <section id="stage" class="stage">
+        <div class="board">
           <canvas id="game"></canvas>
-          <div id="labels" aria-hidden="true"></div>
+          <div id="labels" class="overlay-layer" aria-hidden="true"></div>
         </div>
       </section>
 
-      <aside id="panel">
+      <aside class="panel">
         <div class="card task">
           <p id="task-text"></p>
           <ul id="station-list"></ul>
@@ -35,7 +36,36 @@
           <ul id="help"></ul>
         </div>
         <div class="card actions">
+          <button type="button" id="btn-drive-panel" class="btn primary" hidden></button>
           <button type="button" id="btn-reset" class="btn">Opnieuw</button>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Driving (side view) -->
+    <main id="screen-drive" class="screen" hidden>
+      <section id="drive-stage" class="stage">
+        <div class="board">
+          <canvas id="side"></canvas>
+          <div id="signs" class="overlay-layer" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="card task">
+          <p id="drive-status"></p>
+        </div>
+        <div class="card">
+          <h2 id="whereto-heading"></h2>
+          <div id="destinations"></div>
+        </div>
+        <div class="card">
+          <h2 id="map-heading"></h2>
+          <canvas id="minimap"></canvas>
+        </div>
+        <div class="card actions">
+          <button type="button" id="btn-map" class="btn"></button>
+          <button type="button" id="btn-next-drive" class="btn"></button>
         </div>
       </aside>
     </main>
@@ -46,7 +76,8 @@
         <p id="done-text"></p>
         <div class="dialog-buttons">
           <button type="button" id="btn-again" class="btn"></button>
-          <button type="button" id="btn-next" class="btn primary"></button>
+          <button type="button" id="btn-next" class="btn"></button>
+          <button type="button" id="btn-drive" class="btn primary"></button>
         </div>
       </div>
     </div>
@@ -57,12 +88,17 @@
   <script src="js/core/track.js"></script>
   <script src="js/core/level.js"></script>
   <script src="js/core/network.js"></script>
+  <script src="js/core/route.js"></script>
   <script src="js/data/themes.js"></script>
   <script src="js/data/i18n.js"></script>
   <script src="js/data/levels.js"></script>
   <script src="js/gfx/sprites.js"></script>
   <script src="js/gfx/renderer.js"></script>
+  <script src="js/gfx/side-sprites.js"></script>
+  <script src="js/gfx/side-renderer.js"></script>
+  <script src="js/gfx/minimap.js"></script>
   <script src="js/ui/build-screen.js"></script>
+  <script src="js/ui/drive-screen.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

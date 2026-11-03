@@ -83,13 +83,15 @@ select { padding: 4px 8px; }
 
 /* ------------------------------------------------------------ layout */
 
-#main {
+/* One screen at a time: the puzzle or driving */
+.screen[hidden] { display: none; }
+.screen {
   flex: 1;
   display: flex;
   min-height: 0;
 }
 
-#stage {
+.stage {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -99,20 +101,20 @@ select { padding: 4px 8px; }
   overflow: hidden;
 }
 
-#board {
+.board {
   position: relative;
   border: 4px solid var(--card-edge);
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
   line-height: 0;
 }
 
-#game {
+.board canvas {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
 
-#panel {
+.panel {
   width: var(--panel-w);
   flex: none;
   padding: 12px 12px 12px 4px;
@@ -222,7 +224,7 @@ select { padding: 4px 8px; }
 
 /* ------------------------------------------------------------ station labels on the map */
 
-#labels {
+.overlay-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -293,7 +295,63 @@ select { padding: 4px 8px; }
 
 /* Narrow windows: panel below the map */
 @media (max-width: 900px) {
-  #main { flex-direction: column; }
-  #panel { width: auto; padding: 0 12px 12px; }
-  #stage { flex: none; height: 62vh; }
+  .screen { flex-direction: column; }
+  .panel { width: auto; padding: 0 12px 12px; }
+  .stage { flex: none; height: 62vh; }
 }
+
+/* ------------------------------------------------------------ driving screen */
+
+.actions .btn { flex: 1; }
+
+#destinations { display: grid; gap: 8px; }
+
+.destination {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  background: #343a43;
+  border: 3px solid var(--card-edge);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.destination:hover:not(:disabled) { background: #4d4420; border-color: var(--accent); }
+.destination:disabled { cursor: default; opacity: 0.55; }
+.destination.here { opacity: 1; background: #2f3a2c; border-color: #3f7a33; }
+.destination canvas {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  border: 2px solid var(--card-edge);
+}
+.destination .tag { font-size: 14px; color: var(--ok); font-weight: 700; }
+
+#minimap {
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  border: 3px solid var(--card-edge);
+}
+
+/* Station name boards in the side view; sized in art pixels via --px (board: 96 x 32) */
+.sign {
+  position: absolute;
+  transform: translate(-50%, 0);
+  width: calc(var(--px) * 90);
+  height: calc(var(--px) * 26);
+  margin-top: calc(var(--px) * 3);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  white-space: nowrap;
+  font-size: calc(var(--px) * 9.5);
+}
+.sign .name { align-items: center; line-height: 1.05; }
+.sign .main { color: #ffffff; }
+.sign .second { color: var(--en); font-size: 0.7em; }
+.sign .second.lang-nl { color: #e8e2d4; }

@@ -49,10 +49,20 @@ Each phase ends with something playable in the browser.
 - 6 hand-made farm levels (one with a river), each with a stored solution that the tests verify.
 - GitHub Actions workflow: runs the tests, deploys `main` to GitHub Pages.
 
-### Phase 3 — Driving
-- Shortest-path routing over the port graph from the start station to a chosen station (and onward).
-- Short top-down animation leaving the station, then the **side-view travel scene**: parallax landscape in
-  the level's theme, train with the selected number of carriages, mini-map showing the train's position.
+### Phase 3 — Driving ✅
+- Shortest-path routing over the port graph between any two stations (`js/core/route.js`), with smooth
+  geometry through straights and curves; tests check every route on every level for jumps.
+- After solving a puzzle: **Ga rijden!** opens the **side-view** screen. Pick a station, the whistle blows
+  and the train accelerates, cruises and brakes into the destination station.
+- Side view: steam locomotive with turning spoked wheels, coupling rods and steam, three wagons;
+  parallax landscape (sky, clouds, far and near hills with fields and windmills, trees, fences, hay bales,
+  telegraph poles); a girder bridge over a river wherever the route crosses a bridge piece.
+- Station buildings in side view (warehouse, barn, bakery, windmill with turning sails, market stalls,
+  generic buildings for the other themes) with a platform and a bilingual name board.
+- Mini-map of the built track with the route and the train's position; sentences such as
+  "De trein rijdt naar de Boerderij." (Dutch articles stored per station).
+- The top-down departure animation from the original plan was dropped: the mini-map shows the train on the
+  player's own track instead.
 
 ### Phase 4 — Loading and delivering (first complete game loop)
 - Order list written as short Dutch sentences, names bilingual: "Breng 6 kippen naar de Boerderij (Farm)."
