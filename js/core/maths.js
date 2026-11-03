@@ -6,10 +6,15 @@
  *   missing   the train already holds some goods; load the rest (3 + ? = 8)
  *   takeaway  the train holds too many; take the extra out (9 - ? = 5)
  *   multiply  passengers: carriages hold c people each; how many carriages for c x w?
+ *   divide    share parcels evenly over 2-4 stations (unloaded by hand; amounts hidden)
+ *
+ * With adaptive settings the numbers follow the player's level per skill
+ * (TG.progress.limit), always capped by the parent's maximum.
  *
  * A plan: { kind, skill, orders, preload: [good...], mode: 'goods' | 'passengers',
  *           wagons, perWagon, wagonType, notes: [{ key, vars }] }
  * Notes are extra lines under the orders, e.g. "Er zitten al 3 kippen in de trein."
+ * plan.manual: the player unloads by hand; plan.hideAmounts: order lines show no number (division).
  */
 (function (TG) {
   'use strict';
@@ -24,7 +29,26 @@
     add: ['add', 'missing'],
     subtract: ['takeaway'],
     multiply: ['multiply'],
+    divide: ['divide'],
   };
+
+  /** Multiplication per level: allowed carriage sizes and the most carriages. */
+  const MULTIPLY_LEVELS = [
+    { sizes: [2], w: 3 }, { sizes: [2], w: 5 }, { sizes: [2, 5], w: 3 }, { sizes: [2, 5], w: 5 },
+    { sizes: [2, 5, 10], w: 3 }, { sizes: [2, 5, 10], w: 5 }, { sizes: [2, 5, 10], w: 5 }, { sizes: [2, 5, 10], w: 5 },
+  ];
+  /** Division per level: most stations to share over and the largest share. */
+  const DIVIDE_LEVELS = [
+    { k: 2, s: 3 }, { k: 2, s: 5 }, { k: 3, s: 3 }, { k: 3, s: 5 }, { k: 4, s: 5 }, { k: 4, s: 6 }, { k: 4, s: 7 }, { k: 4, s: 8 },
+  ];
+
+  function levelOf(skill, settings) {
+    return settings.adaptive && TG.progress ? TG.progress.level(skill) : TG.progress ? TG.progress.MAX_LEVEL : 8;
+  }
+
+  function limitOf(skill, settings) {
+    return TG.progress ? TG.progress.limit(skill, settings) : settings.maxNumber;
+  }
 
   function randInt(rand, lo, hi) {
     return lo + Math.floor(rand() * (hi - lo + 1));
@@ -50,7 +74,7 @@
     for (const skill of TG.settings.SKILLS) {
       if (!settings.skills[skill]) continue;
       for (const k of KINDS_BY_SKILL[skill]) {
-        if (k === 'add' && targets < 2) continue;
+        if ((k === 'add' || k === 'divide') && targets < 2) continue;
         kinds.push(k);
       }
     }
@@ -64,16 +88,19 @@
 
   function planRound(state, settings, seed, previousKind) {
     const rand = TG.util.rng(seed);
-    const N = settings.maxNumber;
-    const cap = Math.min(N, FREIGHT_CAPACITY);
     const targets = state.stations.filter(s => !s.isStart);
     let kinds = feasibleKinds(state, settings);
     if (kinds.length > 1) kinds = kinds.filter(k => k !== previousKind);
     const kind = pick(rand, kinds);
 
+    const skill = skillOf(kind);
+    const N = limitOf(skill, settings);
+    const cap = Math.min(N, FREIGHT_CAPACITY);
+    const lvl = levelOf(skill, settings);
     const plan = {
       kind,
-      skill: skillOf(kind),
+      skill,
+      level: lvl,
       orders: [],
       preload: [],
       mode: 'goods',
@@ -99,7 +126,7 @@
         break;
       }
       case 'add': {
-        const n = targets.length >= 3 && cap >= 12 && rand() < 0.4 ? 3 : 2;
+        const n = targets.length >= 3 && cap >= 12 && lvl >= 5 && rand() < 0.4 ? 3 : 2;
         const stations = shuffle(rand, targets).slice(0, n);
         const total = randInt(rand, Math.max(n + 1, 4), cap);
         const parts = [];
@@ -135,17 +162,32 @@
         break;
       }
       case 'multiply': {
+        const rule = MULTIPLY_LEVELS[lvl - 1];
         const pairs = [];
-        for (const c of COACH_SIZES) for (let w = 2; w <= MAX_COACHES; w++) if (c * w <= N) pairs.push([c, w]);
-        const [c, w] = pick(rand, pairs);
+        for (const c of rule.sizes) for (let w = 2; w <= rule.w; w++) if (c * w <= N) pairs.push([c, w]);
+        const [c, w] = pairs.length ? pick(rand, pairs) : [2, 2];
         addOrder(pick(rand, targets), 'passenger', c * w);
         Object.assign(plan, { mode: 'passengers', wagons: 1, perWagon: c, wagonType: 'coach' + c });
         plan.notes.push({ key: 'perWagon', vars: { c } }, { key: 'howManyWagons', vars: {} });
         break;
       }
+      case 'divide': {
+        const rule = DIVIDE_LEVELS[lvl - 1];
+        const k = randInt(rand, 2, Math.max(2, Math.min(rule.k, targets.length)));
+        const maxShare = Math.max(1, Math.min(rule.s, Math.floor(cap / k)));
+        const share = randInt(rand, Math.min(2, maxShare), maxShare); // sharing 1 each is too easy
+        shuffle(rand, targets).slice(0, k).forEach(st => addOrder(st, 'parcel', share));
+        plan.hideAmounts = true;
+        plan.notes.push({ key: 'divideNote', vars: { total: share * k, k, good: 'parcel' } });
+        break;
+      }
     }
+    plan.manual = kind === 'divide' || (!!settings.manualUnload && plan.mode === 'goods');
     return plan;
   }
 
-  TG.maths = { KINDS_BY_SKILL, MAX_COACHES, COACH_SIZES, FREIGHT_CAPACITY, feasibleKinds, planRound, skillOf };
+  TG.maths = {
+    KINDS_BY_SKILL, MAX_COACHES, COACH_SIZES, FREIGHT_CAPACITY, MULTIPLY_LEVELS, DIVIDE_LEVELS,
+    feasibleKinds, planRound, skillOf,
+  };
 })(globalThis.TG = globalThis.TG || {});

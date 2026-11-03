@@ -18,7 +18,9 @@ const FILES = [
   'js/core/route.js',
   'js/core/round.js',
   'js/core/settings.js',
+  'js/core/progress.js',
   'js/core/maths.js',
+  'js/core/generator.js',
   'js/data/themes.js',
   'js/data/goods.js',
   'js/data/i18n.js',
@@ -397,6 +399,134 @@ test('every station kind in the levels can order something, and goods have names
     const wants = TG.themes.stationKind(st.kind).wants;
     assert(wants.length > 0, st.kind);
     for (const g of wants) assert(TG.GOODS[g] && TG.GOODS[g].nl.length === 2 && TG.GOODS[g].en.length === 2, g);
+  }
+});
+
+console.log('progress');
+test('staircase: two 3-star results go up, one 1-star result goes down', () => {
+  const P = TG.progress;
+  let s = { level: 1, streak: 0, history: [] };
+  s = P.applyResult(s, 3); eq(s.level, 1);
+  s = P.applyResult(s, 3); eq(s.level, 2);
+  s = P.applyResult(s, 3); s = P.applyResult(s, 2); s = P.applyResult(s, 3); eq(s.level, 2, '2 stars resets the streak');
+  s = P.applyResult(s, 1); eq(s.level, 1);
+  s = P.applyResult(s, 1); eq(s.level, 1, 'not below 1');
+  for (let i = 0; i < 40; i++) s = P.applyResult(s, 3);
+  eq(s.level, P.MAX_LEVEL, 'not above the maximum');
+  eq(s.history.length, 10, 'history is kept short');
+});
+test('puzzle stars from pieces taken back', () => {
+  const P = TG.progress;
+  eq(P.puzzleStars(0, 6), 3);
+  eq(P.puzzleStars(1, 6), 3);
+  eq(P.puzzleStars(3, 6), 2);
+  eq(P.puzzleStars(8, 6), 1);
+  eq(P.puzzleStars(2, 20), 3);
+  eq(P.puzzleStars(8, 20), 2);
+});
+test('progress: record, limits follow the level and the parent maximum', () => {
+  const P = TG.progress;
+  P.use(null);
+  const st = { maxNumber: 20, skills: {}, adaptive: true };
+  eq(P.limit('add', st), 5);
+  P.record('add', 3); P.record('add', 3);
+  eq(P.level('add'), 2);
+  eq(P.limit('add', st), 7);
+  eq(P.limit('add', Object.assign({}, st, { adaptive: false })), 20, 'not adaptive: the parent maximum');
+  eq(P.get().totalStars, 6);
+  eq(P.normalize({ skills: { add: { level: 99 } } }).skills.add.level, P.MAX_LEVEL);
+  P.use(null);
+});
+test('adaptive plans stay within the level range', () => {
+  TG.progress.use(null); // everything at level 1
+  const st = { maxNumber: 20, adaptive: true, skills: { count: true, add: true, subtract: true, multiply: true, divide: true } };
+  for (const def of TG.LEVELS) {
+    const s = L.createLevel(def);
+    for (let seed = 1; seed < 40; seed++) {
+      const p = M().planRound(s, st, seed);
+      const lim = TG.progress.limit(p.skill, st);
+      for (const o of p.orders) assert(o.amount <= lim, p.kind + ' amount ' + o.amount + ' > ' + lim);
+      assert(p.preload.length <= lim, 'preload');
+      if (p.kind === 'multiply') eq(p.perWagon, 2, 'level 1 multiplication uses pairs');
+    }
+  }
+});
+test('division: equal shares of parcels over 2+ stations, unloaded by hand', () => {
+  TG.progress.use(null);
+  const st = { maxNumber: 20, adaptive: false, skills: { count: false, add: false, subtract: false, multiply: false, divide: true } };
+  const s = L.createLevel(TG.LEVELS[5]);
+  for (let seed = 1; seed < 40; seed++) {
+    const p = M().planRound(s, st, seed);
+    eq(p.kind, 'divide');
+    assert(p.manual && p.hideAmounts, 'manual and hidden');
+    assert(p.orders.length >= 2);
+    assert(new Set(p.orders.map(o => o.amount)).size === 1, 'equal shares');
+    assert(p.orders[0].amount >= 2, 'at least 2 each');
+    assert(p.orders.every(o => o.good === 'parcel'));
+  }
+});
+test('manual unloading: exact amount accepted, wrong amounts counted as mistakes', () => {
+  const orders = [{ id: 'o0', stationId: 'farm', good: 'chicken', amount: 4, delivered: 0 }];
+  const r = RD().createRound(orders, { preload: ['chicken', 'chicken', 'chicken', 'chicken', 'chicken', 'chicken'] });
+  eq(RD().unloadAt(r, 'farm', 5).reason, 'tooMany');
+  eq(RD().unloadAt(r, 'farm', 2).reason, 'tooFew');
+  const ok = RD().unloadAt(r, 'farm', 4);
+  assert(ok.ok);
+  eq(ok.removed.length, 4);
+  eq(RD().count(r, 'chicken'), 2);
+  eq(r.unloadMistakes, 2);
+  eq(RD().unloadAt(r, 'farm', 1).reason, 'none', 'order already done');
+});
+test('manual unloading: everything in the train is accepted when it is less than needed', () => {
+  const orders = [{ id: 'o0', stationId: 'farm', good: 'chicken', amount: 5, delivered: 0 }];
+  const r = RD().createRound(orders, { preload: ['chicken', 'chicken'] });
+  const res = RD().unloadAt(r, 'farm', 2);
+  assert(res.ok);
+  eq(res.delivery.missing, 3);
+});
+
+console.log('generator');
+test('generated puzzles: valid and solvable at every level', () => {
+  for (let level = 1; level <= TG.generator.PUZZLE_LEVELS.length; level++) {
+    const params = TG.generator.PUZZLE_LEVELS[level - 1];
+    for (let seed = 1; seed <= 40; seed++) {
+      const def = TG.generator.generate(level, seed * 101);
+      assert(def.generated, 'level ' + level + ' seed ' + seed + ': generation fell back');
+      assert(TG.generator.verify(def), 'not solvable');
+      eq(def.stations.length, params.stations, 'station count');
+      eq(def.map.length, 10);
+      assert(def.map.every(r => r.length === 16));
+      const used = {};
+      for (const p of def.solution) used[p.type] = (used[p.type] || 0) + 1;
+      for (const t in used) assert(def.pieces[t] >= used[t], 'inventory too small for ' + t);
+      if (params.straight) eq(def.solution.length, def.solution.filter(p => p.type === 'straight').length, 'level 1 is straight');
+    }
+  }
+});
+test('generated puzzles: higher levels use junctions and bridges', () => {
+  let junctions = 0, bridges = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const def = TG.generator.generate(8, seed * 13);
+    if (def.pieces.junction) junctions++;
+    if (def.pieces.bridge) bridges++;
+  }
+  assert(junctions === 30, 'every 4-station puzzle needs junctions: ' + junctions);
+  assert(bridges >= 8, 'rivers appear: ' + bridges);
+});
+test('generated puzzles are reproducible', () => {
+  eq(TG.generator.generate(5, 1234), TG.generator.generate(5, 1234));
+});
+test('generated puzzles support every round kind', () => {
+  const st = { maxNumber: 20, adaptive: false, skills: { count: true, add: true, subtract: true, multiply: true, divide: true } };
+  for (let level = 1; level <= 8; level++) {
+    const def = TG.generator.generate(level, 77 + level);
+    const s = L.createLevel(def);
+    for (const p of def.solution) L.place(s, p.x, p.y, p.type, p.rot);
+    const a = NW.analyze(s);
+    for (let seed = 1; seed < 15; seed++) {
+      const plan = M().planRound(s, st, seed);
+      for (const o of plan.orders) assert(TG.route.findRoute(s, a.graph, s.stations[0].id, o.stationId), 'route to ' + o.stationId);
+    }
   }
 });
 

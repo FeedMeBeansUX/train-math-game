@@ -11,6 +11,7 @@
     <header id="topbar">
       <h1 id="title">Treinspel</h1>
       <div class="top-actions">
+        <span id="star-count" class="star-count">★ 0</span>
         <select id="level-select" aria-label="Puzzel"></select>
         <button type="button" id="btn-lang" class="btn small">English</button>
         <button type="button" id="btn-settings" class="btn small" aria-label="Instellingen">⚙</button>
@@ -96,6 +97,16 @@
           <legend id="skills-legend"></legend>
           <div id="skill-options" class="choice-col"></div>
         </fieldset>
+        <fieldset>
+          <legend id="difficulty-legend"></legend>
+          <div id="difficulty-options" class="choice-col"></div>
+        </fieldset>
+        <fieldset>
+          <legend id="progress-legend"></legend>
+          <div id="progress-table" class="progress-table"></div>
+          <p id="progress-totals" class="hint"></p>
+          <button type="button" id="btn-reset-progress" class="btn small"></button>
+        </fieldset>
         <div class="dialog-buttons">
           <button type="button" id="btn-settings-cancel" class="btn"></button>
           <button type="submit" id="btn-settings-save" class="btn primary"></button>
@@ -106,6 +117,7 @@
     <div id="done" class="overlay" hidden>
       <div class="dialog" role="dialog" aria-labelledby="done-title">
         <h2 id="done-title"></h2>
+        <div id="done-stars" class="stars"></div>
         <p id="done-text"></p>
         <div class="dialog-buttons">
           <button type="button" id="btn-again" class="btn"></button>
@@ -124,7 +136,9 @@
   <script src="js/core/route.js"></script>
   <script src="js/core/round.js"></script>
   <script src="js/core/settings.js"></script>
+  <script src="js/core/progress.js"></script>
   <script src="js/core/maths.js"></script>
+  <script src="js/core/generator.js"></script>
   <script src="js/data/themes.js"></script>
   <script src="js/data/goods.js"></script>
   <script src="js/data/i18n.js"></script>

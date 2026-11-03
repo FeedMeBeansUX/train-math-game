@@ -54,6 +54,7 @@
       this.types = T.INVENTORY_ORDER.filter(type => (def.pieces[type] || 0) > 0);
       this.selected = this.types[0] || null;
       this.solved = false;
+      this.removals = 0; // pieces taken back: fewer means more puzzle stars
       this.particles = [];
       this.analysis = NW.analyze(this.state);
       this.buildLabels();
@@ -262,7 +263,10 @@
     }
 
     secondary(tile) {
-      if (L.removeAt(this.state, tile.x, tile.y)) this.changed();
+      if (L.removeAt(this.state, tile.x, tile.y)) {
+        this.removals++;
+        this.changed();
+      }
       else if (!L.cellAt(this.state, tile.x, tile.y) && this.selected) {
         this.selected = null;
         this.refreshPanel();
@@ -295,7 +299,8 @@
         });
       }
       this.hover = null;
-      setTimeout(() => this.callbacks.onSolved && this.callbacks.onSolved(), 900);
+      const result = { removals: this.removals, pieces: this.def.solution.length };
+      setTimeout(() => this.callbacks.onSolved && this.callbacks.onSolved(result), 900);
     }
 
     frame(t) {

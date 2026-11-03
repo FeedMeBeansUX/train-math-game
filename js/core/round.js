@@ -31,6 +31,7 @@
       load: (opts.preload || []).slice(),
       departuresFromStart: 0,
       emptySeats: null,
+      unloadMistakes: 0,
     };
   }
 
@@ -120,6 +121,35 @@
     return { deliveries, removed };
   }
 
+  /** The open order at this station for one of the goods, or null. */
+  function openOrderAt(round, stationId) {
+    return round.orders.find(o => o.stationId === stationId && remaining(o) > 0) || null;
+  }
+
+  /**
+   * Unloading by hand: the player hands over n items of the open order's good. Accepted when n is
+   * exactly what is still needed, or everything in the train when that is less (a partial delivery).
+   * Returns { ok: true, removed, delivery } or { ok: false, reason: 'tooMany' | 'tooFew' | 'none' }.
+   */
+  function unloadAt(round, stationId, n) {
+    const o = openOrderAt(round, stationId);
+    if (!o) return { ok: false, reason: 'none' };
+    const have = count(round, o.good);
+    const need = remaining(o);
+    const ok = n === need || (n > 0 && n === have && have < need);
+    if (!ok) {
+      round.unloadMistakes++;
+      return { ok: false, reason: n > need ? 'tooMany' : 'tooFew', good: o.good };
+    }
+    // Positions (in the load before removal) of the items that go
+    const removed = [];
+    const before = round.load.slice();
+    for (let i = before.length - 1; i >= 0 && removed.length < n; i--) if (before[i] === o.good) removed.push(i);
+    for (let k = 0; k < n; k++) unloadOne(round, o.good);
+    o.delivered += n;
+    return { ok: true, removed, delivery: { good: o.good, given: n, missing: remaining(o), left: count(round, o.good) } };
+  }
+
   function recordDeparture(round, fromStart) {
     if (fromStart) round.departuresFromStart++;
   }
@@ -130,12 +160,15 @@
 
   /**
    * 3 stars: one trip from the start, nothing left over and (passenger rounds) no empty seats on the
-   * first trip; one star less for each extra trip, for leftovers and for empty seats.
+   * first trip; one star less for each extra trip, for leftovers, for empty seats and for wrong
+   * amounts when unloading by hand (one star for the first mistake, another after three).
    */
   function stars(round) {
     const mistakes = Math.max(0, round.departuresFromStart - 1)
       + (round.load.length > 0 ? 1 : 0)
-      + (round.emptySeats > 0 ? 1 : 0);
+      + (round.emptySeats > 0 ? 1 : 0)
+      + (round.unloadMistakes > 0 ? 1 : 0)
+      + (round.unloadMistakes > 2 ? 1 : 0);
     return Math.max(1, 3 - mistakes);
   }
 
@@ -149,6 +182,6 @@
   TG.round = {
     WAGON_CAPACITY,
     createRound, setWagons, waitingPassengers, board, remaining, goodsNeeded, count, isFull,
-    loadOne, unloadOne, deliverAt, recordDeparture, isComplete, stars, leftovers,
+    loadOne, unloadOne, deliverAt, openOrderAt, unloadAt, recordDeparture, isComplete, stars, leftovers,
   };
 })(globalThis.TG = globalThis.TG || {});

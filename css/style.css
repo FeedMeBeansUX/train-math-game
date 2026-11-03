@@ -466,3 +466,26 @@ legend { padding: 0 6px; font-weight: 700; }
 .choice-col { display: grid; gap: 8px; }
 .choice { font-size: 18px; cursor: pointer; }
 .choice input { width: 18px; height: 18px; accent-color: #d4a11a; vertical-align: -3px; }
+
+/* ------------------------------------------------------------ progress, unloading by hand */
+
+.star-count { font-size: 20px; font-weight: 700; color: var(--accent); padding: 0 8px; white-space: nowrap; }
+
+.dialog.settings { max-height: 92vh; overflow-y: auto; min-width: min(560px, 92vw); }
+.progress-table { display: grid; gap: 6px; margin-bottom: 8px; }
+.progress-row { display: grid; grid-template-columns: 110px 104px 20px 1fr; align-items: center; gap: 8px; font-size: 15px; }
+.progress-name { font-weight: 700; }
+.level-bar { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.level-bar span { height: 10px; background: #3a414b; }
+.level-bar span.on { background: var(--ok); }
+.progress-level { font-weight: 700; color: var(--ok); text-align: center; }
+.progress-history { color: var(--accent); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.unload-box {
+  margin: 4px 0 10px;
+  padding: 6px 8px 10px;
+  background: rgba(255, 216, 74, 0.1);
+  border: 3px solid var(--accent);
+  animation: pop 0.25s ease-out;
+}
+.unload-go { width: 100%; margin-top: 6px; }

@@ -96,15 +96,24 @@ Each phase ends with something playable in the browser.
 - Counts in the panel are shown as ten frames (blocks of ten in rows of five), like the wagons.
 - **Parent settings** (⚙ in the top bar): largest number (10 / 20 / 50 / 100) and which skills are on.
   Default: up to 20, counting + addition + subtraction. Saved in the browser.
-- Not done: **division** (sharing evenly over stations) needs unloading by hand; moved to phase 6.
+- Division (sharing evenly over stations) needed unloading by hand: done in phase 6.
 
-### Phase 6 — Adaptive difficulty and progress
-- Keep track of results per skill (puzzle, addition, subtraction, multiplication) and adjust the next round:
-  number range, number of stations/goods, puzzle size, spare pieces.
-- **Puzzle generator** (needed so puzzles can adapt): place stations, build a valid route with obstacles,
-  derive the piece inventory from it, check it can be solved.
-- Saved in the browser (`localStorage`); extend the parents' settings from phase 5 (progress overview, reset).
-- Unloading by hand as a harder setting, which also enables **division** (share goods evenly over stations).
+### Phase 6 — Adaptive difficulty and progress ✅
+- `js/core/progress.js`: every skill (counting, addition, subtraction, multiplication, division, puzzles) has a
+  level 1–8. Staircase: two 3-star results in a row → level up; a 1-star result → level down. Each level has
+  a number range (e.g. addition: 5, 7, 10, 12, 15, 20, 25, 30), always capped by the parent's maximum.
+  Multiplication levels add carriage sizes (2 → 5 → 10) and more carriages; division levels more stations and
+  bigger shares. A "Knap! Je gaat een niveau omhoog." line celebrates a level up.
+- **Puzzle generator** (`js/core/generator.js`): after the six hand-made puzzles, "Nieuwe puzzel" makes a new
+  puzzle for the player's puzzle level: more stations (2 → 4, with junctions), longer routes, obstacles,
+  rivers that need bridges, spare pieces. Every puzzle is checked with the game rules before it is shown.
+  Puzzles now earn stars too (pieces taken back cost stars) and move the puzzle level.
+- **Unloading by hand** (parent setting, always on for division): at a station the player chooses how many
+  goods come off; "Dat zijn er te veel / te weinig" until it is right (mistakes cost a star).
+- **Division**: "Verdeel 12 pakketten eerlijk over 3 stations." The order lines show no numbers; every station
+  must get the same amount ("Elk station krijgt evenveel.").
+- Total stars in the top bar. Parent settings: adaptive on/off, unloading by hand, division, and a progress
+  overview (level and recent results per skill, totals) with a reset button. All saved in the browser.
 
 ### Phase 7 — Themes and progression
 - Themes: farm, construction, racing, garage, town. Each has its own stations, goods, colours and side-view

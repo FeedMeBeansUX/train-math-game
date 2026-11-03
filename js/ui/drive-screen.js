@@ -141,6 +141,7 @@
       this.flyers = [];
       this.pendingLoad = {};
       this.pendingPile = {};
+      this.unloading = null;
       this.puffTimer = 0;
       this.messages = [];
       this.dom.roundDone.hidden = true;
@@ -180,6 +181,7 @@
       this.flyers = [];
       this.pendingLoad = {};
       this.messages = [];
+      this.unloading = null;
       const boarding = this.round.mode === 'passengers' && this.current === this.startId ? this.boardPassengers() : 0;
       this.trip = { route, to: toId, D, worldEnd, motion: motion(D), t: -(WHISTLE + boarding), lastPos: 0 };
       for (let i = 0; i < 6; i++) this.puff(this.front + CHIMNEY_DX, 0, 1.4);
@@ -219,12 +221,49 @@
       }
     }
 
-    /** Hand over the goods this station ordered, with goods flying onto the platform. */
+    /**
+     * Hand over the goods this station ordered. Normally automatic; when unloading by hand
+     * (division rounds or the parent setting) the player first chooses how many come off.
+     */
     unloadHere() {
+      const order = RD.openOrderAt(this.round, this.current);
+      if (this.plan.manual && order && RD.count(this.round, order.good) > 0) {
+        this.unloading = { stationId: this.current, good: order.good, n: 0 };
+        this.messages = [i18n.both('askUnload', { goods: l => i18n.goodsWord(order.good, 2, l) })];
+        this.refresh();
+        return;
+      }
       const before = this.round.load.slice();
       const res = RD.deliverAt(this.round, this.current);
+      this.animateDelivery(before, res.removed, res.deliveries);
+    }
+
+    setUnloadCount(n) {
+      const u = this.unloading;
+      if (!u) return;
+      u.n = Math.max(0, Math.min(RD.count(this.round, u.good), n));
+      this.refresh();
+    }
+
+    confirmUnload() {
+      const u = this.unloading;
+      if (!u || this.busy) return;
+      const before = this.round.load.slice();
+      const res = RD.unloadAt(this.round, u.stationId, u.n);
+      if (!res.ok) {
+        this.messages = [Object.assign(i18n.both(res.reason === 'tooMany' ? 'tooMany' : 'tooFew'), { kind: 'warn' })];
+        if (this.plan.kind === 'divide') this.messages.push(i18n.both('fairHint'));
+        this.refresh();
+        return;
+      }
+      this.unloading = null;
+      this.animateDelivery(before, res.removed, [res.delivery]);
+    }
+
+    /** Goods fly from the wagons onto the platform; then the result is shown. */
+    animateDelivery(before, removedIdx, deliveries) {
       const goodsHere = this.deliveredGoods(this.current);
-      const removed = res.removed.slice().sort((a, b) => a - b);
+      const removed = removedIdx.slice().sort((a, b) => a - b);
       removed.forEach((idx, i) => {
         const good = before[idx];
         const key = this.current + ':' + good;
@@ -238,7 +277,7 @@
       this.busy = removed.length > 0;
       this.afterFlights = () => {
         this.busy = false;
-        this.messages = this.deliveryMessages(res.deliveries);
+        this.messages = this.deliveryMessages(deliveries);
         this.refresh();
         if (RD.isComplete(this.round)) setTimeout(() => this.showRoundDone(), 900);
       };
@@ -550,12 +589,14 @@
         const done = RD.remaining(o) === 0;
         const li = el('li', done ? 'done' : '');
         li.append(goodIconEl(o.good));
-        li.append(sentenceEl(i18n.both('orderLine', {
+        const hide = this.plan.hideAmounts;
+        li.append(sentenceEl(i18n.both(hide ? 'orderLineNoNumber' : 'orderLine', {
           n: o.amount,
-          goods: l => i18n.goodsWord(o.good, o.amount, l),
+          goods: l => i18n.goodsWord(o.good, hide ? 2 : o.amount, l),
           s: l => i18n.stationPhrase(st.kind, l),
         })));
-        const status = el('span', 'order-status', done ? '✓' : o.delivered > 0 ? o.delivered + ' / ' + o.amount : '');
+        const progress = o.delivered > 0 && !hide ? o.delivered + ' / ' + o.amount : '';
+        const status = el('span', 'order-status', done ? '✓' : progress);
         li.append(status);
         list.append(li);
       }
@@ -563,9 +604,9 @@
       for (const note of this.plan.notes) {
         const v = note.vars;
         const vars = {};
-        if (v.p != null) vars.p = v.p;
-        if (v.c != null) vars.c = v.c;
-        if (v.good) vars.goods = l => i18n.goodsWord(v.good, v.p != null ? v.p : 2, l);
+        for (const k in v) if (typeof v[k] === 'number') vars[k] = v[k];
+        const n = v.p != null ? v.p : v.total != null ? v.total : 2;
+        if (v.good) vars.goods = l => i18n.goodsWord(v.good, n, l);
         box.append(sentenceEl(i18n.both(note.key, vars), 'note'));
       }
     }
@@ -581,6 +622,7 @@
       const box = this.dom.load;
       box.textContent = '';
       box.append(el('h2', null, i18n.t('load')));
+      if (this.unloading) box.append(this.unloadBox());
       if (this.passengers()) {
         this.refreshCarriages(box);
         return;
@@ -612,6 +654,36 @@
       }
       if (!this.round.load.length && !canLoad) box.append(el('p', 'hint', i18n.t('trainEmpty')));
       if (canLoad) box.append(el('p', 'hint', i18n.t('loadHint')));
+    }
+
+    /** Unloading by hand: choose how many of the good come off, then press Unload. */
+    unloadBox() {
+      const u = this.unloading;
+      const have = RD.count(this.round, u.good);
+      const boxEl = el('div', 'unload-box');
+      const row = el('div', 'load-row');
+      row.append(goodIconEl(u.good));
+      const label = el('div', 'load-label');
+      const word = el('span', 'name');
+      word.append(el('span', 'main lang-' + i18n.getLang(), i18n.t('unload')));
+      word.append(el('span', 'second lang-' + i18n.other(), i18n.t('unload', null, i18n.other())));
+      label.append(word, dotsEl(u.n));
+      row.append(label);
+      const minus = el('button', 'btn round-btn', '−');
+      minus.type = 'button';
+      minus.disabled = this.busy || u.n === 0;
+      minus.addEventListener('click', () => this.setUnloadCount(u.n - 1));
+      const plus = el('button', 'btn round-btn', '+');
+      plus.type = 'button';
+      plus.disabled = this.busy || u.n >= have;
+      plus.addEventListener('click', () => this.setUnloadCount(u.n + 1));
+      row.append(minus, el('span', 'load-count', String(u.n)), plus);
+      const go = el('button', 'btn primary unload-go', i18n.t('unload') + ' ✓');
+      go.type = 'button';
+      go.disabled = this.busy || u.n === 0;
+      go.addEventListener('click', () => this.confirmUnload());
+      boxEl.append(row, go);
+      return boxEl;
     }
 
     /** Passenger rounds: number of carriages, and seats shown as groups of dots (c, c, c ...). */
@@ -707,6 +779,12 @@
       }
       const empty = this.round.emptySeats || 0;
       if (empty > 0) d.roundText.append(sentenceEl(i18n.both(empty === 1 ? 'emptySeatsOne' : 'emptySeatsMany', { k: empty })));
+      // Progress: the result moves this skill's level (adaptive difficulty)
+      const skill = this.plan.skill;
+      const before = TG.progress.level(skill);
+      const after = TG.progress.record(skill, n);
+      if (after > before && TG.settings.get().adaptive) d.roundText.append(sentenceEl(i18n.both('levelUp'), 'ok'));
+      if (this.callbacks.onStars) this.callbacks.onStars();
       d.roundDone.hidden = false;
       d.btnNewRound.focus();
     }
