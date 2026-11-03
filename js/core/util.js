@@ -21,9 +21,19 @@
     };
   }
 
+  /** Smooth 2D value noise in [0, 1]; one lattice cell per unit. */
+  function valueNoise(x, y, seed) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed);
+    const c = hash2(xi, yi + 1, seed), d = hash2(xi + 1, yi + 1, seed);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+
   function clamp(v, lo, hi) {
     return v < lo ? lo : v > hi ? hi : v;
   }
 
-  TG.util = { hash2, rng, clamp };
+  TG.util = { hash2, valueNoise, rng, clamp };
 })(globalThis.TG = globalThis.TG || {});

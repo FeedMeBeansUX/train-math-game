@@ -6,11 +6,12 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–2. The track puzzle is playable: 5 farm levels.
+**Current state:** phases 0–2. The track puzzle is playable: 6 farm levels.
 
 ## Playing
 
-- **Online:** via GitHub Pages (Settings → Pages → deploy from branch, root folder).
+- **Online:** GitHub Pages. Every push to `main` runs the tests and deploys the site
+  (`.github/workflows/pages.yml`; Settings → Pages → Source: GitHub Actions).
 - **Locally:** download or clone the repository and double-click `index.html`.
   No installation or internet connection needed.
   (Alternatively serve the folder, e.g. `python3 -m http.server`, and open http://localhost:8000.)
@@ -19,13 +20,14 @@ See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
 | Action | Mouse / keyboard |
 |---|---|
-| Pick a piece | click it in the panel, or keys `1` `2` `3` |
+| Pick a piece | click it in the panel, or keys `1` `2` `3` `4` |
 | Rotate the piece in hand | `R` (`Shift+R` back) or mouse wheel |
 | Lay track | left click on grass |
 | Rotate laid track | left click on it |
 | Take track back | right click (or `Delete` while hovering) |
 | Put the piece down | `Esc` |
 
+Bridges can only be placed on water; the other pieces only on land.
 Yellow blinking dots show where the track can continue; red dots show ends
 that are blocked or don't fit. Stations get a ✓ once they are connected to the
 start station.

@@ -105,16 +105,27 @@
     return state.stations.find(s => s.id === id) || null;
   }
 
-  /** Can a new piece go on this tile? */
-  function canBuild(state, x, y) {
+  /**
+   * Can a new piece go on this tile? With a type: that piece specifically
+   * (bridges need water, the rest open ground). Without: any piece at all.
+   */
+  function canBuild(state, x, y, type) {
     if (!inBounds(state, x, y)) return false;
     const i = idx(state, x, y);
-    return TERRAIN[state.terrain[i]].buildable && !state.cells[i] && !state.buildings[i];
+    if (state.cells[i] || state.buildings[i]) return false;
+    const ground = TERRAIN[state.terrain[i]];
+    const fits = t => (T.getPiece(t).on === 'water' ? ground.id === 'water' : ground.buildable);
+    return type ? fits(type) : T.INVENTORY_ORDER.some(fits);
+  }
+
+  /** Could track still continue onto this tile with the pieces this level offers? */
+  function canContinue(state, x, y) {
+    return T.INVENTORY_ORDER.some(t => (state.def.pieces[t] || 0) > 0 && canBuild(state, x, y, t));
   }
 
   function place(state, x, y, type, rot) {
     if (!T.getPiece(type).placeable) return false;
-    if (!(state.inventory[type] > 0) || !canBuild(state, x, y)) return false;
+    if (!(state.inventory[type] > 0) || !canBuild(state, x, y, type)) return false;
     state.cells[idx(state, x, y)] = { type, rot: T.normalizeRot(type, rot), fixed: false, stationId: null };
     state.inventory[type]--;
     return true;
@@ -138,6 +149,6 @@
   TG.level = {
     TERRAIN,
     createLevel, idx, inBounds, terrainAt, cellAt, stationById,
-    canBuild, place, rotateAt, removeAt,
+    canBuild, canContinue, place, rotateAt, removeAt,
   };
 })(globalThis.TG = globalThis.TG || {});

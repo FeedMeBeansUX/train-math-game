@@ -10,16 +10,18 @@ the network.
 
 | Topic | Decision |
 |---|---|
-| Platform | Browser, plain HTML/CSS/JavaScript, no build step. Runs from GitHub Pages **and** by double-clicking `index.html` after downloading the repo (so: classic `<script>` tags, no ES modules or `fetch` of local files). |
+| Platform | Browser, plain HTML/CSS/JavaScript, no build step. Runs from GitHub Pages (deployed by GitHub Actions on every push to `main`) **and** by double-clicking `index.html` after downloading the repo (so: classic `<script>` tags, no ES modules or `fetch` of local files). |
 | Input | PC with mouse and keyboard. |
 | Language | Dutch first; English UI option later. **Names of stations, goods and pieces are always shown in Dutch and English** so he picks up English words. |
 | Reading | He reads short words/sentences himself (no text-to-speech needed). Sentences like "Breng 6 kippen naar de boerderij." |
-| Track building | **Puzzle**: a limited set of pieces (straight, curve, junction, later switches/bridges), place and rotate. Difficulty adapts to how previous rounds went. |
+| Track building | **Puzzle**: a limited set of pieces (straight, curve, junction, bridge, later switches), place and rotate. Difficulty adapts to how previous rounds went. |
+| Junctions | For now the train may take any way through a junction (auto routing). Real switches come in phase 9. |
+| Water | Obstacle, crossed with a separate **bridge** piece that only goes on water. |
 | Routing | The train finds its own way at first. Later: player-controlled switches and "deliver in the right order" puzzles. |
 | Trips | Multi-stop trips: load once at the start, drop off at several stations (addition), see what is left (subtraction). Wrong amounts are allowed: feedback on delivery, go back to fetch more or end with leftovers. |
 | Maths | Addition and subtraction up to 20, configurable/adaptive. Multiplication at higher levels ("20 passengers, 5 seats per carriage: how many carriages?"), division later. |
 | Themes | Rotating level themes with their own stations and goods: farm, construction, racing, garage/mechanic, town… |
-| Art | Pixel art, leaning realistic rather than childish. **Top-down** view for the track puzzle, **side view** for loading and travelling (with a top-down mini-map of the route). Style is still being explored. |
+| Art | Pixel art, leaning realistic rather than childish, **32×32 px tiles**, generated in code for now (can be swapped for PNGs later). **Top-down** view for the track puzzle, **side view** for loading and travelling (with a top-down mini-map of the route). |
 | Font | Andika (designed for beginning readers), bundled under `assets/fonts` so it works offline. |
 
 ## Phases
@@ -32,19 +34,20 @@ Each phase ends with something playable in the browser.
 - Node test runner (`node tests/run-tests.js`) for the pure logic.
 
 ### Phase 1 — Top-down map ✅
-- Tile grid (16×16 px tiles, integer-scaled to the window), terrain: grass, flowers, water, trees, rocks.
-- Pixel art generated in code (procedural tiles + small hand-drawn sprites). Designed so sprites can later
-  be swapped for PNG files without touching game logic.
+- Tile grid (32×32 px tiles, integer-scaled to the window), terrain: grass, flowers, water with shores, trees, rocks.
+- Pixel art generated in code: ground painted for the whole map (no repeating tiles), procedural trees,
+  rocks, buildings and track. Designed so sprites can later be swapped for PNG files without touching game logic.
 - Stations with a building, platform and bilingual name label.
 
 ### Phase 2 — Track puzzle ✅
-- Pieces: straight, curve, junction (T); stations are fixed end/through pieces.
-- Inventory panel; select with mouse or keys `1`–`3`, rotate with `R` / mouse wheel, place with left click,
+- Pieces: straight, curve, junction (T), bridge (water only); stations are fixed end/through pieces.
+- Inventory panel; select with mouse or keys `1`–`4`, rotate with `R` / mouse wheel, place with left click,
   click a placed piece to rotate it, right click to take it back.
 - Network analysis on a port graph (each tile edge is a node) so curves really only connect their two ends.
 - Live feedback: open ends pulse (yellow = continue here, red = blocked), stations get a ✓ once connected
   to the start station, unconnected pieces are dimmed. Completion when every station is reachable.
-- 5 hand-made farm levels, each with a stored solution that the tests verify.
+- 6 hand-made farm levels (one with a river), each with a stored solution that the tests verify.
+- GitHub Actions workflow: runs the tests, deploys `main` to GitHub Pages.
 
 ### Phase 3 — Driving
 - Shortest-path routing over the port graph from the start station to a chosen station (and onward).
@@ -85,8 +88,7 @@ Each phase ends with something playable in the browser.
 - Switch pieces the player sets before departure; deliveries that must happen in a set order.
 
 ### Later / optional
-- English UI option, bridges over water, level editor, extra train types (passengers, freight).
+- Level editor, extra train types (passengers, freight).
 
 ## Open questions
-- Where the art comes from: generated in code (current approach), a free pixel-art pack (CC0), or drawn
-  by us. See the README / discussion.
+- None at the moment. Art style will be revisited in phase 8 (tile size can still change).

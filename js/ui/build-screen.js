@@ -34,7 +34,7 @@
       this.callbacks = callbacks || {};
       this.renderer = new TG.TopDownRenderer(dom.canvas);
       this.selected = null;
-      this.rotations = { straight: 1, curve: 0, junction: 0 };
+      this.rotations = { straight: 1, curve: 0, junction: 0, bridge: 1 };
       this.hover = null;
       this.particles = [];
       this.solved = false;
@@ -173,12 +173,11 @@
         key.textContent = String(i + 1);
 
         const cv = document.createElement('canvas');
-        cv.width = 48;
-        cv.height = 48;
+        cv.width = S.TILE;
+        cv.height = S.TILE;
         const cx = cv.getContext('2d');
-        cx.imageSmoothingEnabled = false;
-        cx.drawImage(S.grass(1), 0, 0, 48, 48);
-        cx.drawImage(S.track(type, this.rotations[type]), 0, 0, 48, 48);
+        cx.drawImage(S.ground(T.getPiece(type).on === 'water' ? 'water' : 'grass'), 0, 0);
+        cx.drawImage(S.track(type, this.rotations[type]), 0, 0);
 
         const cnt = document.createElement('span');
         cnt.className = 'count';
@@ -189,7 +188,9 @@
       });
 
       d.help.innerHTML = '';
-      for (const k of ['helpPlace', 'helpRotate', 'helpRotatePlaced', 'helpRemove']) {
+      const help = ['helpPlace', 'helpRotate', 'helpRotatePlaced', 'helpRemove'];
+      if (this.types.includes('bridge')) help.splice(1, 0, 'helpBridge');
+      for (const k of help) {
         const li = document.createElement('li');
         li.textContent = i18n.t(k);
         d.help.append(li);
@@ -267,7 +268,7 @@
       if (t) {
         const c = L.cellAt(this.state, t.x, t.y);
         if (c) cursor = c.fixed ? 'not-allowed' : 'pointer';
-        else if (this.selected) cursor = L.canBuild(this.state, t.x, t.y) ? 'crosshair' : 'not-allowed';
+        else if (this.selected) cursor = L.canBuild(this.state, t.x, t.y, this.selected) ? 'crosshair' : 'not-allowed';
       }
       this.dom.canvas.style.cursor = cursor;
     }
@@ -279,10 +280,10 @@
       for (let i = 0; i < 140; i++) {
         this.particles.push({
           x: Math.random() * w,
-          y: -Math.random() * 60,
-          vx: (Math.random() - 0.5) * 30,
-          vy: 30 + Math.random() * 50,
-          size: Math.random() < 0.3 ? 2 : 1,
+          y: -Math.random() * 120,
+          vx: (Math.random() - 0.5) * 60,
+          vy: 60 + Math.random() * 100,
+          size: Math.random() < 0.3 ? 4 : 2,
           color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
         });
       }

@@ -46,7 +46,7 @@
             if (ny * state.w + nx > y * state.w + x) connect(portId(state, x, y, d), portId(state, nx, ny, T.opposite(d)));
           } else {
             // Open end: "free" if a piece could still be placed there, otherwise blocked.
-            openEnds.push({ x, y, dir: d, blocked: !L.canBuild(state, nx, ny) });
+            openEnds.push({ x, y, dir: d, blocked: !L.canContinue(state, nx, ny) });
           }
         }
       }

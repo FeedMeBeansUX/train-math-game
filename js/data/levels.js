@@ -1,9 +1,9 @@
 /*
  * Hand-made puzzle levels (phase 2). Format: see js/core/level.js.
- * Map chars: '.' grass, 'f' flowers (buildable), '~' water, 'T' tree, 'R' rock.
+ * Map chars: '.' grass, 'f' flowers (buildable), '~' water (bridges only), 'T' tree, 'R' rock.
  * Every level carries one known solution; tests/run-tests.js checks it.
  * Curve rotations: 0 = N-E, 1 = E-S, 2 = S-W, 3 = W-N.
- * Straight rotations: 0 = N-S, 1 = E-W.
+ * Straight and bridge rotations: 0 = N-S, 1 = E-W.
  * Junction rotations: 0 = W/E/S, 1 = N/S/W, 2 = E/W/N, 3 = S/N/E.
  */
 (function (TG) {
@@ -99,6 +99,36 @@
         ...col(10, 3, 4, 'straight', 0),
         { x: 10, y: 5, type: 'curve', rot: 0 },
         ...row(5, 11, 12, 'straight', 1),
+      ],
+    },
+    {
+      id: 'farm-river',
+      theme: 'farm',
+      map: [
+        'TT.....~~....TTT',
+        'T......~~.......',
+        '...f...~~...f...',
+        '.......~~.......',
+        '.......~~.......',
+        '.....R.~~.......',
+        '......~~~.......',
+        '.f....~~........',
+        '.....~~....f....',
+        'TT...~~.....TTTT',
+      ],
+      stations: [
+        { kind: 'depot', x: 2, y: 4, ports: 'E', building: 'N' },
+        { kind: 'market', x: 13, y: 6, ports: 'W', building: 'N' },
+      ],
+      pieces: { straight: 9, curve: 3, bridge: 2 },
+      solution: [
+        ...row(4, 3, 6, 'straight', 1),
+        ...row(4, 7, 8, 'bridge', 1),
+        ...row(4, 9, 10, 'straight', 1),
+        { x: 11, y: 4, type: 'curve', rot: 2 },
+        { x: 11, y: 5, type: 'straight', rot: 0 },
+        { x: 11, y: 6, type: 'curve', rot: 0 },
+        { x: 12, y: 6, type: 'straight', rot: 1 },
       ],
     },
     {

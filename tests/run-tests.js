@@ -101,7 +101,24 @@ test('cannot build on water, trees or rocks', () => {
     { kind: 'depot', x: 0, y: 1, ports: 'E', building: 'N' },
     { kind: 'farm', x: 4, y: 1, ports: 'W', building: 'N' },
   ] }));
-  assert(!L.canBuild(s, 1, 1) && !L.canBuild(s, 2, 1) && !L.canBuild(s, 3, 1));
+  for (const x of [1, 2, 3]) assert(!L.canBuild(s, x, 1, 'straight'), 'straight at x=' + x);
+  assert(L.canBuild(s, 1, 1, 'bridge') && !L.canBuild(s, 2, 1, 'bridge'), 'bridge on water only');
+});
+
+test('bridges only on water, other pieces only on land', () => {
+  const s = L.createLevel(tinyLevel({ map: ['.....', '..~..', '.....'], pieces: { straight: 2, bridge: 2 } }));
+  assert(!L.place(s, 2, 1, 'straight', 1), 'straight on water');
+  assert(!L.place(s, 1, 1, 'bridge', 1), 'bridge on land');
+  assert(L.place(s, 2, 1, 'bridge', 1), 'bridge on water');
+  L.place(s, 1, 1, 'straight', 1);
+  L.place(s, 3, 1, 'straight', 1);
+  assert(NW.analyze(s).allConnected, 'bridge connects like a straight');
+});
+test('water is a dead end without bridges in the level', () => {
+  const s = L.createLevel(tinyLevel({ map: ['.....', '..~..', '.....'] }));
+  L.place(s, 1, 1, 'straight', 1);
+  const end = NW.analyze(s).openEnds.find(o => o.x === 1 && o.y === 1 && o.dir === T.E);
+  assert(end && end.blocked);
 });
 
 console.log('network');

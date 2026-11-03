@@ -170,7 +170,7 @@ select { padding: 4px 8px; }
 .piece {
   position: relative;
   display: grid;
-  grid-template-columns: 54px 1fr auto;
+  grid-template-columns: 70px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 6px 10px 6px 6px;
@@ -186,8 +186,8 @@ select { padding: 4px 8px; }
 .piece.selected { background: #4d4420; border-color: var(--accent); }
 .piece:disabled { opacity: 0.4; cursor: default; }
 .piece canvas {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   image-rendering: pixelated;
   border: 3px solid var(--card-edge);
   grid-row: 1;
