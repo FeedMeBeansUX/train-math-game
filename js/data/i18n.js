@@ -76,6 +76,14 @@
     levelUp:         { nl: 'Knap! Je gaat een niveau omhoog.', en: 'Great! You go up a level.' },
     newPuzzle:       { nl: 'Nieuwe puzzel', en: 'New puzzle' },
     stars:           { nl: 'sterren', en: 'stars' },
+    // Themes
+    newPuzzleTheme:  { nl: 'Nieuwe puzzel: {t}', en: 'New puzzle: {t}' },
+    lockedTheme:     { nl: '{t}: nog {n} sterren', en: '{t}: {n} more stars' },
+    lockedThemeOne:  { nl: '{t}: nog {n} ster', en: '{t}: {n} more star' },
+    unlockTitle:     { nl: 'Nieuw thema!', en: 'New theme!' },
+    unlockText:      { nl: 'Je kunt nu spelen in: {t}', en: 'You can now play: {t}' },
+    playNow:         { nl: 'Speel nu', en: 'Play now' },
+    later:           { nl: 'Later', en: 'Later' },
     // Settings (for parents)
     settings:        { nl: 'Instellingen', en: 'Settings' },
     settingsIntro:   { nl: 'Voor ouders. Geldt vanaf de volgende ronde.', en: 'For parents. Applies from the next round.' },

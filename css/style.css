@@ -489,3 +489,10 @@ legend { padding: 0 6px; font-weight: 700; }
   animation: pop 0.25s ease-out;
 }
 .unload-go { width: 100%; margin-top: 6px; }
+
+/* ------------------------------------------------------------ theme unlock */
+
+.overlay.unlock { z-index: 20; background: rgba(10, 12, 15, 0.6); }
+.unlock-burst { font-size: 64px; color: var(--accent); line-height: 1; animation: spin 1.2s ease-out; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); }
+@keyframes spin { from { transform: rotate(-180deg) scale(0.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .unlock-burst { animation: none; } }

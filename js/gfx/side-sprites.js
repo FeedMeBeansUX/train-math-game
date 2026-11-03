@@ -200,6 +200,10 @@
       case 'bread': return { sprite: bakery(art) };
       case 'sails': return mill(art);
       case 'awning': return market(art);
+      case 'stripes': return { sprite: buildingSite(art) };
+      case 'flag': return { sprite: grandstand(art) };
+      case 'drop': return { sprite: fuelStation(art, kind) };
+      case 'bell': return { sprite: school(art, kind) };
       default: return {
         sprite: genericBuilding(art, {
           paint: (set, w, h) => {
@@ -207,11 +211,150 @@
             drawWindow(set, art, w - 28, 46, 14, 14);
             set.rect(w / 2 - 8, h - 26, w / 2 + 7, h - 1, art.trim);
             set.rect(w / 2 - 6, h - 24, w / 2 + 5, h - 1, art.door);
-            set.rect(w / 2 - 16, 30, w / 2 + 15, 38, art.roof[1]);
+            iconSign(set, w / 2 - 14, 28, TG.themes.stationKind(kind).wants[0], art);
           },
         }),
       };
     }
+  }
+
+  /** A sign board showing a good's icon at double size (what the station is about). */
+  function iconSign(set, x, y, good, art) {
+    set.rect(x, y, x + 27, y + 19, '#3b2f25');
+    set.rect(x + 1, y + 1, x + 26, y + 18, art.trim);
+    const icon = GOOD_ICONS[good];
+    if (!icon) return;
+    const [rows, pal] = icon;
+    rows.forEach((row, iy) => {
+      for (let ix = 0; ix < 8; ix++) {
+        if (row[ix] !== '.') set.rect(x + 6 + ix * 2, y + 2 + iy * 2, x + 7 + ix * 2, y + 3 + iy * 2, pal[row[ix]]);
+      }
+    });
+  }
+
+  /** Construction: a concrete frame going up, scaffolding and a tower crane. */
+  function buildingSite(art) {
+    const w = 124, h = 132;
+    return makeSprite(w, h, set => {
+      const base = h - 1;
+      // Floors and columns
+      for (let f = 0; f < 4; f++) {
+        const y = base - f * 22;
+        set.rect(10, y - 3, 86, y - 1, '#a8a49c');
+        for (const cx of [12, 36, 60, 84]) set.rect(cx - 1, y - 22, cx + 1, y - 3, '#8f8a80');
+        // Some bays are already bricked in on the lower floors
+        if (f < 2) for (const bx of [14, 38]) {
+          for (let yy = y - 21; yy < y - 3; yy++) for (let xx = bx; xx < bx + 21; xx++) {
+            set(xx, yy, (yy % 4 === 0 || (xx + (Math.floor(yy / 4) % 2) * 3) % 6 === 0) ? '#7e3a2c' : '#a8473a');
+          }
+          drawWindow(set, art, bx + 7, y - 16, 7, 7);
+        }
+      }
+      set.rect(10, base - 91, 86, base - 89, '#a8a49c');
+      // Scaffolding in front of the right part
+      for (let x = 62; x <= 92; x += 10) set.rect(x, base - 92, x, base, '#6d7178');
+      for (let f = 0; f < 5; f++) set.rect(60, base - f * 22 - 1, 94, base - f * 22, '#c9a46c');
+      for (let f = 0; f < 4; f++) for (let i = 0; i < 10; i++) set(62 + i * 3, base - f * 22 - 2 - i * 2, '#8a8f98');
+      // Tower crane
+      for (let y = 4; y <= base; y++) {
+        set(100, y, '#d6a531');
+        set(104, y, '#d6a531');
+        if (y % 4 === 0) set.rect(101, y, 103, y, '#b08624');
+        else if (y % 4 === 2) set(102, y, '#b08624');
+      }
+      set.rect(30, 4, 122, 6, '#d6a531');
+      for (let x = 30; x < 122; x += 4) set(x + 2, 7, '#b08624');
+      set.rect(108, 7, 120, 14, '#6d7178');
+      set.rect(98, 0, 106, 3, '#d6a531');
+      set.rect(99, 8, 105, 13, '#2f3135');
+      set.rect(100, 9, 104, 11, '#9cbfd6');
+      // Hook with a hanging beam
+      set.rect(52, 7, 52, 40, '#3a3a3a');
+      set.rect(50, 41, 54, 43, '#3a3a3a');
+      set.rect(38, 44, 66, 47, '#c4483d');
+      set.rect(38, 44, 66, 44, '#e06a5a');
+    });
+  }
+
+  /** Racing: a grandstand full of spectators under a roof, with a chequered banner. */
+  function grandstand(art) {
+    const w = 140, h = 74;
+    return makeSprite(w, h, set => {
+      const r = rng(31);
+      // Roof and posts
+      set.rect(0, 2, w - 1, 7, art.roof[0]);
+      set.rect(0, 7, w - 1, 9, art.roof[1]);
+      for (const px of [4, 46, 92, w - 6]) set.rect(px, 10, px + 2, h - 1, '#6d7178');
+      // Tiers with spectators
+      for (let t = 0; t < 6; t++) {
+        const y = 16 + t * 8;
+        set.rect(2, y + 5, w - 3, y + 7, t % 2 ? '#9a9a9a' : '#b4b4b4');
+        for (let x = 6; x < w - 6; x += 4) {
+          if (r() < 0.82) {
+            const shirt = ['#c4483d', '#2a6fb0', '#e0a030', '#3f8a4a', '#f2efe6', '#8a4a9a'][Math.floor(r() * 6)];
+            set.rect(x, y + 2, x + 2, y + 4, shirt);
+            set(x + 1, y + 1, ['#f0c8a0', '#c08860', '#8a5a3a'][Math.floor(r() * 3)]);
+          }
+        }
+      }
+      // Chequered banner along the front
+      for (let x = 0; x < w; x++) for (let y = h - 10; y < h - 4; y++) set(x, y, (Math.floor(x / 3) + Math.floor(y / 3)) % 2 ? '#111111' : '#f5f5f5');
+      set.rect(0, h - 4, w - 1, h - 1, '#5a5f66');
+    });
+  }
+
+  /** Racing: canopy over two pumps and a small shop. */
+  function fuelStation(art, kind) {
+    const w = 134, h = 74;
+    return makeSprite(w, h, set => {
+      // Canopy
+      set.rect(0, 10, 88, 19, '#f2efe6');
+      set.rect(0, 12, 88, 16, art.roof[0]);
+      set.rect(0, 20, 88, 21, 'rgba(0,0,0,0.3)');
+      for (const px of [10, 74]) set.rect(px, 22, px + 3, h - 1, '#b9bec4');
+      // Pumps
+      for (const px of [28, 52]) {
+        set.rect(px, h - 26, px + 10, h - 1, art.roof[0]);
+        set.rect(px + 2, h - 23, px + 8, h - 17, '#1e2a30');
+        set.rect(px + 3, h - 22, px + 7, h - 20, '#7ad48a');
+        set.rect(px + 10, h - 18, px + 12, h - 16, '#2a2a2c');
+        set.rect(px + 12, h - 16, px + 12, h - 8, '#2a2a2c');
+      }
+      // Shop
+      for (let y = 30; y < h; y++) for (let x = 94; x < w; x++) set(x, y, wallColor(art, x, y));
+      set.rect(92, 26, w - 1, 30, art.roof[1]);
+      drawWindow(set, art, 98, 40, 14, 12);
+      set.rect(118, h - 24, 129, h - 1, art.door);
+      iconSign(set, 98, 2, TG.themes.stationKind(kind).wants[0], art);
+    });
+  }
+
+  /** Town: a brick school with a bell tower and big windows. */
+  function school(art, kind) {
+    const w = 120, h = 104;
+    return makeSprite(w, h, set => {
+      const roofTop = 26, roofBottom = 44;
+      for (let y = roofBottom + 1; y < h; y++) for (let x = 4; x < w - 4; x++) set(x, y, wallColor(art, x, y));
+      set.rect(4, roofBottom + 1, 4, h - 1, '#26221e');
+      set.rect(w - 5, roofBottom + 1, w - 5, h - 1, '#26221e');
+      roof(set, art, 0, w - 1, roofTop, roofBottom, 16);
+      // Bell tower
+      set.rect(52, 4, 67, roofBottom, art.wall);
+      set.rect(52, 4, 67, 5, art.trim);
+      set.rect(55, 10, 64, 20, '#2f3135');
+      set.ellipse(59.5, 16, 3.5, 4, '#d9b43a');
+      set.rect(58, 9, 61, 10, '#d9b43a');
+      for (let y = 0; y < 4; y++) set.rect(54 + y, y, 65 - y, y, art.roof[1]);
+      // Windows in two rows and a door with steps
+      for (const wx of [12, 30, 78, 96]) {
+        drawWindow(set, art, wx, 54, 12, 14);
+        drawWindow(set, art, wx, 78, 12, 14);
+      }
+      set.rect(51, h - 30, 68, h - 1, art.trim);
+      set.rect(53, h - 28, 66, h - 3, art.door);
+      set.rect(48, h - 3, 71, h - 1, '#9a9282');
+      iconSign(set, 46, 52, TG.themes.stationKind(kind).wants[0], art);
+    });
   }
 
   function warehouse(art) {
@@ -464,12 +607,50 @@
         const x = Math.floor(r() * STRIP), top = Math.round(hs[x]);
         set.ellipse(x, top - 2, 3 + r() * 3, 3, '#759a78');
       }
+      const sil = '#6d8f70';
       if (theme === 'farm') {
         for (const x of [180, 610, 880]) {
           const top = Math.round(hs[x]);
-          set.rect(x - 1, top - 14, x + 1, top, '#6d8f70');
-          set.rect(x - 2, top - 16, x + 2, top - 14, '#6d8f70');
-          for (let t = -7; t <= 7; t++) { set(x + t, top - 15 + t, '#6d8f70'); set(x + t, top - 15 - t, '#6d8f70'); }
+          set.rect(x - 1, top - 14, x + 1, top, sil);
+          set.rect(x - 2, top - 16, x + 2, top - 14, sil);
+          for (let t = -7; t <= 7; t++) { set(x + t, top - 15 + t, sil); set(x + t, top - 15 - t, sil); }
+        }
+      } else if (theme === 'construction') {
+        // Tower cranes and unfinished blocks
+        for (const x of [150, 520, 840]) {
+          const top = Math.round(hs[x]);
+          set.rect(x, top - 40, x + 1, top, sil);
+          set.rect(x - 12, top - 40, x + 30, top - 39, sil);
+          set.rect(x - 12, top - 38, x - 8, top - 35, sil);
+          set.rect(x + 20, top - 38, x + 20, top - 26, sil);
+        }
+        for (const x of [60, 300, 420, 700, 960]) {
+          const top = Math.round(hs[x]), bh = 10 + (x % 7) * 2;
+          set.rect(x, top - bh, x + 22, top, sil);
+          for (let yy = top - bh + 2; yy < top - 2; yy += 4) for (let xx = x + 2; xx < x + 21; xx += 4) set(xx, yy, '#8fb092');
+        }
+      } else if (theme === 'racing') {
+        // Floodlight towers and a long grandstand
+        for (const x of [120, 470, 800]) {
+          const top = Math.round(hs[x]);
+          set.rect(x, top - 34, x + 1, top, sil);
+          set.rect(x - 4, top - 38, x + 5, top - 34, sil);
+        }
+        for (const x of [230, 640]) {
+          const top = Math.round(hs[x]);
+          for (let i = 0; i < 90; i++) set.rect(x + i, top - 10 - Math.floor(i / 12), x + i, top, sil);
+        }
+      } else if (theme === 'town') {
+        // Skyline of gabled houses and a church tower
+        for (let x = 0; x < STRIP; x += 14) {
+          const top = Math.round(hs[x]), hh = 8 + Math.floor(rng(x + 1)() * 8);
+          set.rect(x, top - hh, x + 11, top, sil);
+          for (let i = 0; i < 6; i++) set.rect(x + i, top - hh - i, x + 11 - i, top - hh - i, sil);
+        }
+        for (const x of [360, 860]) {
+          const top = Math.round(hs[x]);
+          set.rect(x, top - 34, x + 7, top, sil);
+          for (let i = 0; i < 14; i++) set.rect(x + Math.floor(i / 4), top - 34 - i, x + 7 - Math.floor(i / 4), top - 34 - i, sil);
         }
       }
     });
@@ -489,6 +670,11 @@
         const top = Math.round(hs[x]);
         for (let y = top; y < H; y++) {
           let col = y === top ? '#7fae5c' : (hash2(x, y, 23) < 0.15 ? '#5f8f45' : '#6a9a4f');
+          if (theme === 'construction') col = y === top ? '#a8956a' : (hash2(x, y, 23) < 0.2 ? '#7f6e4c' : '#8f7d56');
+          if (theme === 'racing' && y >= top + 9 && y <= top + 13) {
+            // A stretch of race track with red-and-white kerbs along the hill
+            col = y === top + 9 || y === top + 13 ? (Math.floor(x / 4) % 2 ? '#d23a2c' : '#f2efe6') : '#5a5d63';
+          }
           if (theme === 'farm') {
             for (const f of fields) {
               if (x >= f.x0 && x <= f.x1 && y > top + 3) {
@@ -503,7 +689,34 @@
     });
     // Trees on the ridge (drawn onto the strip with the top-down tree sprites)
     const ctx = sprite.getContext('2d');
-    for (let i = 0; i < 18; i++) {
+    if (theme === 'town') {
+      // A row of Dutch houses with stepped gables along the ridge
+      const houses = makeSprite(STRIP, H, set => {
+        for (let x = 4; x < STRIP - 20; x += 22 + Math.floor(r() * 10)) {
+          const top = Math.round(hs[x + 8]) + 2;
+          const hw = 16, hh = 22 + Math.floor(r() * 10);
+          const wall = ['#9c4a34', '#7a5040', '#c9a27a', '#8a3a2e', '#e0d6c4'][Math.floor(r() * 5)];
+          for (let y = top - hh; y <= top; y++) set.rect(x, y, x + hw, y, wall);
+          for (let st = 0; st < 3; st++) set.rect(x + 2 + st * 2, top - hh - 3 - st * 3, x + hw - 2 - st * 2, top - hh - 1 - st * 3, wall);
+          for (let wy = top - hh + 4; wy < top - 6; wy += 8) for (const wx of [x + 3, x + 10]) set.rect(wx, wy, wx + 3, wy + 4, '#f2efe6');
+          set.rect(x + 6, top - 7, x + 10, top, '#3f4a5a');
+        }
+      });
+      ctx.drawImage(houses, 0, 0);
+    }
+    if (theme === 'construction') {
+      // Half-built frames on the hills
+      const frames = makeSprite(STRIP, H, set => {
+        for (const x of [90, 380, 620, 900]) {
+          const top = Math.round(hs[x + 10]);
+          for (let f = 0; f < 3; f++) set.rect(x, top - f * 10 - 1, x + 26, top - f * 10, '#b4aea2');
+          for (const cx of [x, x + 13, x + 26]) set.rect(cx, top - 30, cx, top, '#8f8a80');
+        }
+      });
+      ctx.drawImage(frames, 0, 0);
+    }
+    const treeCount = theme === 'construction' ? 6 : theme === 'town' ? 8 : 18;
+    for (let i = 0; i < treeCount; i++) {
       const x = Math.floor(r() * (STRIP - 32));
       const top = Math.round(hs[x + 16]);
       const tree = S.tree(Math.floor(r() * 4));
@@ -539,6 +752,79 @@
           set(x, y, v > 0.35 ? '#ffffff' : v > -0.3 ? '#ecedeb' : '#cfd0cd');
         }
       }
+    });
+  }
+
+  /** Traffic cone seen from the side. */
+  function sideCone() {
+    return makeSprite(8, 11, set => {
+      for (let y = 0; y < 9; y++) {
+        const hw = Math.floor(y / 3);
+        set.rect(4 - hw - 1, y, 4 + hw, y, y === 4 || y === 5 ? '#f2efe6' : '#e8702a');
+      }
+      set.rect(0, 9, 7, 10, '#3a3a3a');
+    });
+  }
+
+  /** Red-and-white road barrier. */
+  function barrier() {
+    return makeSprite(26, 12, set => {
+      for (let x = 0; x < 26; x++) for (let y = 2; y < 6; y++) set(x, y, Math.floor((x + y) / 4) % 2 ? '#f2efe6' : '#c4483d');
+      set.rect(2, 6, 3, 11, '#5a5f66');
+      set.rect(22, 6, 23, 11, '#5a5f66');
+      set.rect(0, 11, 5, 11, '#3a3a3a');
+      set.rect(20, 11, 25, 11, '#3a3a3a');
+    });
+  }
+
+  /** Wall of stacked tyres at the race track. */
+  function tyreWall() {
+    return makeSprite(24, 14, set => {
+      for (let row = 0; row < 2; row++) for (let i = 0; i < 4 - row; i++) {
+        const cx = 3 + i * 6 + row * 3, cy = 10 - row * 6;
+        set.ellipse(cx, cy, 3, 3, '#1e1e20');
+        set.ellipse(cx, cy, 1.2, 1.2, row ? '#e0473a' : '#f2efe6');
+      }
+    });
+  }
+
+  /** Billboard on two posts (racing). */
+  function billboard(v) {
+    const colors = [['#c4483d', '#f2efe6'], ['#2a6fb0', '#f0c830'], ['#3f8a4a', '#f2efe6']][v % 3];
+    return makeSprite(34, 24, set => {
+      set.rect(5, 14, 6, 23, '#5a5f66');
+      set.rect(27, 14, 28, 23, '#5a5f66');
+      set.rect(0, 0, 33, 14, '#2f3135');
+      set.rect(1, 1, 32, 13, colors[0]);
+      set.rect(6, 5, 27, 9, colors[1]);
+      for (let x = 8; x < 26; x += 4) set.rect(x, 6, x + 2, 8, colors[0]);
+    });
+  }
+
+  /** Chequered flag on a pole (racing). */
+  function flagPole() {
+    return makeSprite(14, 26, set => {
+      set.rect(0, 0, 1, 25, '#8a8f98');
+      for (let y = 1; y < 9; y++) for (let x = 2; x < 13; x++) set(x, y + Math.floor(Math.sin(x / 2) * 1), (Math.floor(x / 2) + Math.floor(y / 2)) % 2 ? '#111111' : '#f5f5f5');
+    });
+  }
+
+  /** A bicycle parked in town (a Dutch classic). */
+  function bicycle(v) {
+    const frame = ['#2a6fb0', '#c4483d', '#2f3135', '#3f8a4a'][v % 4];
+    return makeSprite(18, 12, set => {
+      for (const cx of [4, 13]) {
+        for (let a = 0; a < 24; a++) {
+          const t = (a / 24) * Math.PI * 2;
+          set(Math.round(cx + Math.cos(t) * 3.5), Math.round(8 + Math.sin(t) * 3.5), '#2a2a2c');
+        }
+        set(cx, 8, '#8a8f98');
+      }
+      for (let i = 0; i <= 9; i++) set(4 + i, 8 - Math.round(i * 0.4), frame);
+      set.rect(8, 4, 12, 4, frame);
+      set.rect(7, 3, 9, 3, '#3a2a1c');
+      set.rect(12, 1, 12, 4, frame);
+      set.rect(11, 1, 14, 1, '#2a2a2c');
     });
   }
 
@@ -600,6 +886,34 @@
       { p: '#c9a46c', P: '#b08a54', d: '#6b4a2f' }],
     stones: [['........', '...gg...', '..gGgg..', '.ggggdg.', 'gGggdggd', 'gggddggd', '.dddddd.', '........'],
       { g: '#9a958c', G: '#c4bfb5', d: '#6a665f' }],
+    cement: [['..t..t..', '...tt...', '..wwww..', '.wwwwww.', 'wwwwwwww', 'wwFFwwwW', 'wwwwwwwW', '.WWWWWW.'],
+      { t: '#4a4a4a', w: '#a8a8a8', W: '#7a7a7a', F: '#dedede' }],
+    logs: [['...oo...', '..oyyo..', '..oyyo..', '.oooooo.', 'oyyooyyo', 'oyyooyyo', '.oo..oo.', '........'],
+      { o: '#6b4a2f', y: '#d9b07a' }],
+    helmet: [['........', '........', '..yyyy..', '.yYyyyy.', 'yYyyyyyy', 'yyyyyyyy', 'dddddddd', '........'],
+      { y: '#e8c030', Y: '#f8e080', d: '#b8901c' }],
+    wheelbarrow: [['........', 'h.......', '.h......', '..gggggg', '..GGGGGg', '...GGGg.', '...h.kk.', '.....kk.'],
+      { g: '#4a8a4a', G: '#3a6a3a', h: '#8a6a48', k: '#2a2a2c' }],
+    cone: [['...oo...', '...oo...', '..owwo..', '..oooo..', '.oooooo.', '.wwwwww.', '.oooooo.', 'dddddddd'],
+      { o: '#e8702a', w: '#f2efe6', d: '#3a3a3a' }],
+    flag: [['pkwkwkw.', 'pwkwkwk.', 'pkwkwkw.', 'pwkwkwk.', 'p.......', 'p.......', 'p.......', 'p.......'],
+      { p: '#8a8f98', k: '#1a1a1a', w: '#f5f5f5' }],
+    soap: [['...dd...', '...bb...', '..bbbb..', '.bBbbbb.', '.bBbbbb.', '.bwwwbb.', '.bbbbbb.', '..bbbb..'],
+      { b: '#5ab0e0', B: '#a8dcf4', d: '#2a6fb0', w: '#f2efe6' }],
+    sponge: [['........', '........', '.yyyyyy.', 'yYyoyyyy', 'yyyyyoyy', 'yoyyyyyy', 'gggggggg', 'gggggggg'],
+      { y: '#f0d040', Y: '#f8e890', o: '#c8a020', g: '#3f8a4a' }],
+    book: [['........', '.rrrrrr.', '.rRrrrr.', '.rRrrrr.', '.rRwwrr.', '.rrrrrr.', '.wwwwww.', '........'],
+      { r: '#c4483d', R: '#e06a5a', w: '#f2efe6' }],
+    pencil: [['......ee', '.....yye', '....yyy.', '...yyy..', '..yyy...', '.www....', '.ww.....', 'k.......'],
+      { y: '#e8c030', e: '#e88a9a', w: '#e8cfa0', k: '#2a2a2c' }],
+    letter: [['........', 'wwwwwwww', 'wDwwwwDw', 'wwDwwDww', 'wwwDDwww', 'wwwwwwww', 'wwwwwwrw', '........'],
+      { w: '#f2efe6', D: '#b8b0a0', r: '#c4483d' }],
+    banana: [['......k.', '.....yy.', '....yyy.', 'y..yyyy.', 'yyyyyyy.', '.yyyyyd.', '..dddd..', '........'],
+      { y: '#f0d040', d: '#c8a020', k: '#5a3a20' }],
+    ball: [['..rrww..', '.rrrwww.', 'rrrrwwww', 'bbbbyyyy', 'bbbbyyyy', '.bbbyyy.', '..bbyy..', '........'],
+      { r: '#d23a2c', w: '#f5f5f5', b: '#2a6fb0', y: '#f0c830' }],
+    teddy: [['.bb..bb.', '.bBbbBb.', '..bbbb..', '..bkkb..', '..bnnb..', '.bbbbbb.', 'bbBBBBbb', '.bb..bb.'],
+      { b: '#a0703a', B: '#c89a60', k: '#1a1a1a', n: '#e0c090' }],
     tyre: [['..kkkk..', '.kkkkkk.', 'kkk..kkk', 'kk.gg.kk', 'kk.gg.kk', 'kkk..kkk', '.kkkkkk.', '..kkkk..'],
       { k: '#2a2a2c', g: '#9a9a9a' }],
     fuel: [['.rrrrrr.', 'rRrrrrrd', 'dddddddd', 'rRrrrrrd', 'rRrrrrrd', 'dddddddd', 'rRrrrrrd', '.rrrrrr.'],
@@ -717,6 +1031,12 @@
     midHills: theme => get('mid:' + theme, () => midHills(theme)),
     foreground: () => get('fg', foreground),
     haybale: () => get('hay', haybale),
+    sideCone: () => get('sideCone', sideCone),
+    barrier: () => get('barrier', barrier),
+    tyreWall: () => get('tyreWall', tyreWall),
+    billboard: v => get('billboard' + (v % 3), () => billboard(v)),
+    flagPole: () => get('flagPole', flagPole),
+    bicycle: v => get('bicycle' + (v % 4), () => bicycle(v)),
     puff: r => get('puff' + r, () => puff(Math.max(1, r))),
     goodIcon: g => get('good:' + g, () => goodIcon(g)),
     crate: () => get('crate', crate),

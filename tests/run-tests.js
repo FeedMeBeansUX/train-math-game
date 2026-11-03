@@ -25,6 +25,9 @@ const FILES = [
   'js/data/goods.js',
   'js/data/i18n.js',
   'js/data/levels.js',
+  // Sprite modules only define drawing functions at load time, so their data can be checked here
+  'js/gfx/sprites.js',
+  'js/gfx/side-sprites.js',
 ];
 
 const context = vm.createContext({ console });
@@ -526,6 +529,53 @@ test('generated puzzles support every round kind', () => {
     for (let seed = 1; seed < 15; seed++) {
       const plan = M().planRound(s, st, seed);
       for (const o of plan.orders) assert(TG.route.findRoute(s, a.graph, s.stations[0].id, o.stationId), 'route to ' + o.stationId);
+    }
+  }
+});
+
+console.log('themes');
+test('every theme has four stations with names, art and goods they want', () => {
+  for (const t of TG.themes.THEME_ORDER) {
+    const th = TG.themes.THEMES[t];
+    eq(th.stations.length, 4, t);
+    assert(th.name.nl && th.name.en, t + ' name');
+    for (const k of th.stations) {
+      const sk = TG.themes.stationKind(k);
+      assert(sk.name.nl && sk.name.en && (sk.name.article === 'de' || sk.name.article === 'het'), k + ' name');
+      assert(sk.art && sk.art.roof && sk.art.wall && sk.art.emblem, k + ' art');
+      assert(sk.wants.length > 0, k + ' wants something');
+    }
+  }
+});
+test('every good has Dutch and English names and an 8x8 icon', () => {
+  for (const g in TG.GOODS) {
+    const n = TG.GOODS[g];
+    assert(n.nl.length === 2 && n.en.length === 2, g + ' names');
+    const icon = TG.sideSprites.GOOD_ICONS[g];
+    assert(icon, g + ' has no icon');
+    eq(icon[0].length, 8, g + ' rows');
+    for (const row of icon[0]) {
+      eq(row.length, 8, g + ' row length');
+      for (const ch of row) assert(ch === '.' || icon[1][ch], g + ': no colour for ' + ch);
+    }
+  }
+});
+test('themes unlock with stars, in order', () => {
+  eq(TG.themes.unlocked(0), ['farm']);
+  eq(TG.themes.unlocked(12), ['farm', 'construction']);
+  eq(TG.themes.unlocked(1000), TG.themes.THEME_ORDER);
+  TG.progress.use({ totalStars: 31 });
+  eq(TG.progress.newlyUnlocked(), ['construction', 'racing']);
+  eq(TG.progress.newlyUnlocked(), [], 'announced only once');
+  TG.progress.use(null);
+});
+test('the generator makes valid puzzles in every theme', () => {
+  for (const t of TG.themes.THEME_ORDER) {
+    for (let level = 1; level <= 8; level++) {
+      const def = TG.generator.generate(level, level * 977, t);
+      assert(def.generated, t + ' level ' + level + ' fell back');
+      eq(def.theme, t);
+      for (const st of def.stations.slice(1)) assert(TG.themes.THEMES[t].stations.includes(st.kind), st.kind + ' not in ' + t);
     }
   }
 });

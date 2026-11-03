@@ -6,11 +6,12 @@ along the way. Dutch first, with all names also shown in English.
 
 See [PLAN.md](PLAN.md) for the phased plan and design decisions.
 
-**Current state:** phases 0–6. Build the track (6 hand-made puzzles, then endless generated puzzles that
+**Current state:** phases 0–7. Build the track (6 hand-made puzzles, then endless generated puzzles that
 match the player's level), then play delivery rounds: read the orders, load the right number of goods at
 the warehouse, and drive the train to each station. Each round practises one skill: counting, addition,
-subtraction, multiplication (passenger carriages) or division (share parcels fairly). Difficulty adapts to
-the results; parents can set the largest number, the skills, unloading by hand, and see progress with ⚙.
+subtraction, multiplication (passenger carriages) or division (share parcels fairly). Four themes — farm,
+construction, racing and town — unlock with the stars you earn. Difficulty adapts to the results; parents
+can set the largest number, the skills, unloading by hand, and see progress with ⚙.
 
 ## Playing
 

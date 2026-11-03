@@ -43,14 +43,14 @@
     }
 
     buildTerrain(state) {
+      const theme = state.def.theme || 'farm';
       const c = S.terrain(state);
       const ctx = c.getContext('2d');
       for (let y = 0; y < state.h; y++) {
         for (let x = 0; x < state.w; x++) {
           const ch = L.terrainAt(state, x, y);
           const v = Math.floor(hash2(x, y, 7) * 12);
-          if (ch === 'T') ctx.drawImage(S.tree(v), x * TILE, y * TILE);
-          if (ch === 'R') ctx.drawImage(S.rock(v), x * TILE, y * TILE);
+          if (ch === 'T' || ch === 'R') ctx.drawImage(S.obstacle(theme, ch, v), x * TILE, y * TILE);
         }
       }
       for (const st of state.stations) {

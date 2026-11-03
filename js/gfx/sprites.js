@@ -109,9 +109,14 @@
 
   // ================================================================ terrain (whole map)
 
-  /** Paint the ground of a whole level: grass, flowers, water with shores. */
+  /**
+   * Paint the ground of a whole level: grass, flowers, water with shores.
+   * Themes change the ground: construction has dry grass with patches of bare earth,
+   * racing has mown stripes.
+   */
   function terrain(state) {
     const L = TG.level;
+    const theme = (state.def && state.def.theme) || 'farm';
     const ch = (tx, ty) => (L.inBounds(state, tx, ty) ? L.terrainAt(state, tx, ty) : '~');
     const isWater = (tx, ty) => ch(tx, ty) === '~';
     const W = state.w * TILE, Hh = state.h * TILE;
@@ -120,40 +125,69 @@
       for (let ty = 0; ty < state.h; ty++) {
         for (let tx = 0; tx < state.w; tx++) {
           if (isWater(tx, ty)) paintWaterTile(set, tx, ty, isWater);
-          else paintGrassTile(set, tx, ty);
+          else paintGrassTile(set, tx, ty, theme);
         }
       }
       // Details on top of the ground
       for (let ty = 0; ty < state.h; ty++) {
         for (let tx = 0; tx < state.w; tx++) {
           if (isWater(tx, ty)) continue;
-          paintGrassBlades(set, tx, ty);
-          if (ch(tx, ty) === 'f') paintFlowers(set, tx, ty);
+          paintGrassBlades(set, tx, ty, theme);
+          if (ch(tx, ty) === 'f') {
+            if (theme === 'construction') paintPebbles(set, tx, ty);
+            else paintFlowers(set, tx, ty);
+          }
         }
       }
     });
   }
 
-  function grassColor(X, Y) {
+  const GRASS_DRY = ['#4d5e2a', '#596a30', '#657636', '#71813d', '#829048'];
+  const DIRT = ['#6e5f44', '#7a6a4c', '#867556', '#93825f'];
+
+  /** Construction sites have patches of bare earth. */
+  function isDirt(X, Y) {
+    const d = valueNoise(X / 22, Y / 22, 55) + (hash2(X, Y, 56) - 0.5) * 0.06;
+    return d > 0.6;
+  }
+
+  function grassColor(X, Y, theme) {
     const big = valueNoise(X / 28, Y / 28, 11);
     const clump = valueNoise(X / 7, Y / 7, 12);
-    const v = big * 0.5 + clump * 0.4 + hash2(X, Y, 13) * 0.28 - 0.08;
+    let v = big * 0.5 + clump * 0.4 + hash2(X, Y, 13) * 0.28 - 0.08;
+    if (theme === 'construction') {
+      if (isDirt(X, Y)) return shade(DIRT, clump * 0.6 + hash2(X, Y, 57) * 0.4);
+      return shade(GRASS_DRY, v);
+    }
+    if (theme === 'racing') v += Math.floor(X / 16) % 2 ? 0.1 : -0.06; // mown stripes
     return shade(C.grass, v);
   }
 
-  function paintGrassTile(set, tx, ty) {
+  function paintGrassTile(set, tx, ty, theme) {
     for (let y = 0; y < TILE; y++) {
       for (let x = 0; x < TILE; x++) {
         const X = tx * TILE + x, Y = ty * TILE + y;
-        set(X, Y, grassColor(X, Y));
+        set(X, Y, grassColor(X, Y, theme));
       }
     }
   }
 
-  function paintGrassBlades(set, tx, ty) {
+  function paintPebbles(set, tx, ty) {
+    const seed = tx * 31 + ty * 17;
+    for (let k = 0; k < 7; k++) {
+      const X = tx * TILE + 3 + Math.floor(hash2(k, 1, seed) * 26);
+      const Y = ty * TILE + 3 + Math.floor(hash2(k, 2, seed) * 26);
+      set(X, Y, '#a39d92');
+      set(X + 1, Y, '#8a847a');
+      set(X, Y + 1, '#6e6a62');
+    }
+  }
+
+  function paintGrassBlades(set, tx, ty, theme) {
     for (let y = 0; y < TILE - 2; y++) {
       for (let x = 0; x < TILE; x++) {
         const X = tx * TILE + x, Y = ty * TILE + y;
+        if (theme === 'construction' && isDirt(X, Y)) continue;
         if (hash2(X, Y, 14) < 0.022) {
           set(X, Y, C.grass[4]);
           set(X, Y + 1, C.grass[3]);
@@ -594,7 +628,99 @@
         set.ellipse(16, 15, 3.5, 3, '#d9b43a');
         set.rect(15, 10, 16, 12, '#d9b43a');
         break;
+      case 'cone': // traffic cones on the roof edge
+        for (const cx of [8, 23]) {
+          for (let y = 0; y < 8; y++) {
+            const hw = Math.floor(y / 2.5);
+            set.rect(cx - hw, 7 + y, cx + hw, 7 + y, y === 4 ? '#f2efe6' : '#e8702a');
+          }
+          set.rect(cx - 4, 15, cx + 4, 15, '#3a3a3a');
+        }
+        break;
+      case 'bubbles': // soap bubbles
+        [[9, 8, 3], [15, 6, 2], [21, 9, 3.5], [13, 13, 2.5], [24, 14, 2]].forEach(([x, y, r]) => {
+          set.ellipse(x, y, r, r, 'rgba(240,248,255,0.85)');
+          set(Math.round(x - r / 2), Math.round(y - r / 2), '#ffffff');
+        });
+        break;
+      case 'bell': // small bell tower on the ridge
+        set.rect(13, 1, 18, 9, art.trim);
+        set.rect(14, 3, 17, 7, '#3a3a3a');
+        set.ellipse(15.5, 5.5, 1.6, 1.8, '#d9b43a');
+        set.rect(12, 0, 19, 1, art.roof[1]);
+        break;
+      case 'envelope':
+        set.rect(10, 11, 21, 17, '#f2efe6');
+        for (let i = 0; i < 6; i++) { set(10 + i, 11 + Math.floor(i * 0.6), '#9a9285'); set(21 - i, 11 + Math.floor(i * 0.6), '#9a9285'); }
+        set.rect(10, 17, 21, 17, '#9a9285');
+        break;
+      case 'shopwindow': // striped awning over the front
+        for (let x = 3; x <= 28; x++) { set(x, 19, x % 4 < 2 ? '#e8e2d4' : art.roof[0]); set(x, 20, x % 4 < 2 ? '#d4cdbd' : art.roof[1]); }
+        break;
+      case 'ball':
+        set.ellipse(16, 12, 5, 5, '#d23a2c');
+        for (let y = 7; y <= 17; y++) for (let x = 16; x <= 21; x++) if (((x - 16) ** 2 + (y - 12) ** 2) <= 25) set(x, y, y < 12 ? '#f5f5f5' : '#2a6fb0');
+        set(14, 9, '#ffffff');
+        break;
     }
+  }
+
+  // ================================================================ theme obstacles (top-down)
+
+  /** Heap of sand or gravel (construction). */
+  function gravelHeap(seed) {
+    const cols = seed % 2 ? ['#8a7a5c', '#9e8c6a', '#b29f7a', '#c4b18a'] : ['#7a776f', '#8c8880', '#9e9a90', '#b2aea3'];
+    return makeSprite(TILE, TILE, set => {
+      set.ellipse(17, 26, 13, 4, C.shadow);
+      for (let y = 9; y <= 26; y++) {
+        const hw = ((y - 9) / 17) * 13;
+        for (let x = Math.round(16 - hw); x <= Math.round(16 + hw); x++) {
+          const v = 0.55 - (x - 16) / 30 - (y - 18) / 40 + (hash2(x, y, seed) - 0.5) * 0.35;
+          set(x, y, shade(cols, v));
+        }
+      }
+    });
+  }
+
+  /** Stacked concrete blocks (construction). */
+  function concreteBlocks() {
+    return makeSprite(TILE, TILE, set => {
+      set.rect(6, 25, 29, 27, C.shadowSoft);
+      const block = (x, y, w, h) => {
+        set.rect(x, y, x + w, y + 3, '#c4c0b8');
+        set.rect(x, y + 4, x + w, y + h, '#9a968e');
+        set.rect(x + w, y, x + w, y + h, '#7a766f');
+        set.rect(x, y + h, x + w, y + h, '#5f5c56');
+      };
+      block(4, 15, 12, 10);
+      block(16, 15, 12, 10);
+      block(10, 6, 12, 9);
+    });
+  }
+
+  /** Stack of tyres (racing). */
+  function tyreStack() {
+    return makeSprite(TILE, TILE, set => {
+      set.ellipse(17, 26, 11, 4, C.shadow);
+      for (const y of [22, 17, 12]) {
+        set.ellipse(16, y, 10, 4.5, '#1e1e20');
+        set.ellipse(16, y - 1, 9, 3.5, '#2e2e31');
+        set.rect(7, y, 25, y, y === 17 ? '#e0473a' : '#3c3c40');
+      }
+      set.ellipse(16, 11, 5, 2, '#55565b');
+      set.ellipse(16, 11, 3, 1.2, '#1e1e20');
+    });
+  }
+
+  const HOUSE_COLORS = [
+    { wall: '#9c4a34', roof: ['#5f6369', '#4a4d52'] }, { wall: '#c9a27a', roof: ['#8a3a2e', '#6e2e24'] },
+    { wall: '#e0d6c4', roof: ['#3f5a7a', '#2f4560'] }, { wall: '#7a5040', roof: ['#9e6a3a', '#7a502c'] },
+  ];
+
+  /** A small town house (town), built with the station building painter. */
+  function house(v) {
+    const c = HOUSE_COLORS[v % HOUSE_COLORS.length];
+    return building({ wallType: 'brick', roof: c.roof, wall: c.wall, trim: '#f2efe6', door: '#3f4a5a', emblem: 'none' });
   }
 
   // ================================================================ registry
@@ -619,6 +745,17 @@
     tree: v => get('tree' + (v % TREE_VARIANTS), () =>
       v % TREE_VARIANTS === 3 ? conifer(700 + v) : deciduousTree(900 + (v % TREE_VARIANTS) * 31)),
     rock: v => get('rock' + (v % ROCK_VARIANTS), () => rock(500 + (v % ROCK_VARIANTS) * 13)),
+    /** Obstacle sprite for a map character ('T' or 'R') in a theme. */
+    obstacle: (theme, ch, v) => {
+      if (theme === 'construction') {
+        return ch === 'T'
+          ? (v % 3 === 0 ? get('tree3', () => conifer(703)) : get('heap' + (v % 2), () => gravelHeap(v % 2)))
+          : get('blocks', concreteBlocks);
+      }
+      if (theme === 'racing' && ch === 'R') return get('tyres', tyreStack);
+      if (theme === 'town' && ch === 'R') return get('house' + (v % HOUSE_COLORS.length), () => house(v));
+      return ch === 'T' ? TG.sprites.tree(v) : TG.sprites.rock(v);
+    },
     track: (type, rot, platformDir) =>
       get('track:' + type + ':' + rot + ':' + platformDir, () => track(type, rot, { platformDir })),
     building: kind => get('building:' + kind, () => building(TG.themes.stationKind(kind).art)),

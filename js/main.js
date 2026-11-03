@@ -25,8 +25,9 @@
   let levelIndex = 0;
   const savedIndex = load(LEVEL_KEY);
   if (Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex <= GEN_INDEX) levelIndex = savedIndex;
-  let generated = load(GEN_KEY); // { level, seed }
+  let generated = load(GEN_KEY); // { level, seed, theme }
   if (!generated || !Number.isInteger(generated.level) || !Number.isInteger(generated.seed)) generated = null;
+  if (generated && !TG.themes.THEMES[generated.theme]) generated.theme = 'farm';
 
   const build = new TG.BuildScreen({
     stage: $('stage'),
@@ -55,22 +56,26 @@
     roundStars: $('round-stars'),
     roundText: $('round-text'),
     btnNewRound: $('btn-new-round'),
-  }, { onStars: refreshStars });
+  }, { onStars });
 
   // Handy for debugging and automated browser tests
   TG.app = { build, drive };
 
-  /** Load a level; for generated puzzles `fresh` makes a new one at the current puzzle level. */
-  function loadLevel(i, fresh) {
+  /**
+   * Load a level. For generated puzzles `fresh` makes a new one at the current puzzle level,
+   * in `theme` (default: the theme of the last generated puzzle).
+   */
+  function loadLevel(i, fresh, theme) {
     levelIndex = i;
     store(LEVEL_KEY, i);
     let def;
     if (i === GEN_INDEX) {
-      if (fresh || !generated) {
-        generated = { level: TG.progress.level('puzzle'), seed: Math.floor(Math.random() * 1e9) };
+      theme = theme || (generated && generated.theme) || 'farm';
+      if (fresh || !generated || generated.theme !== theme) {
+        generated = { level: TG.progress.level('puzzle'), seed: Math.floor(Math.random() * 1e9), theme };
         store(GEN_KEY, generated);
       }
-      def = TG.generator.generate(generated.level, generated.seed);
+      def = TG.generator.generate(generated.level, generated.seed, generated.theme);
     } else {
       def = TG.LEVELS[i];
     }
@@ -95,12 +100,33 @@
     $('done-text').textContent = i18n.t('doneText') + (after > before && TG.settings.get().adaptive ? ' ' + i18n.t('levelUp') : '');
     refreshStars();
     showDone();
+    checkUnlocks();
   }
 
   function refreshStars() {
     const n = TG.progress.get().totalStars;
     $('star-count').textContent = '★ ' + n;
     $('star-count').title = n + ' ' + i18n.t('stars');
+  }
+
+  function onStars() {
+    refreshStars();
+    checkUnlocks();
+  }
+
+  /** Announce a theme that just unlocked, with a button to play it straight away. */
+  let unlockTheme = null;
+  function checkUnlocks() {
+    const fresh = TG.progress.newlyUnlocked();
+    if (!fresh.length) return;
+    unlockTheme = fresh[fresh.length - 1];
+    const name = TG.themes.THEMES[unlockTheme].name;
+    $('unlock-title').textContent = i18n.t('unlockTitle');
+    $('unlock-text').textContent = i18n.t('unlockText', { t: name[i18n.getLang()] + ' (' + name[i18n.other()] + ')' });
+    $('btn-unlock-later').textContent = i18n.t('later');
+    $('btn-unlock-play').textContent = i18n.t('playNow');
+    $('unlock').hidden = false;
+    refreshTexts();
   }
 
   function showBuild() {
@@ -152,11 +178,23 @@
       o.textContent = i18n.t('level') + ' ' + (i + 1);
       sel.append(o);
     });
-    const gen = document.createElement('option');
-    gen.value = String(GEN_INDEX);
-    gen.textContent = i18n.t('newPuzzle') + ' (' + i18n.t('levelOf', { n: TG.progress.level('puzzle') }) + ')';
-    sel.append(gen);
-    sel.value = String(levelIndex);
+    // One "new puzzle" entry per theme; locked themes show how many stars are still needed
+    const stars = TG.progress.get().totalStars;
+    for (const t of TG.themes.THEME_ORDER) {
+      const th = TG.themes.THEMES[t];
+      const o = document.createElement('option');
+      o.value = 'gen:' + t;
+      const tname = th.name[i18n.getLang()];
+      if (stars >= th.unlockStars) {
+        o.textContent = i18n.t('newPuzzleTheme', { t: tname }) + ' (' + i18n.t('levelOf', { n: TG.progress.level('puzzle') }) + ')';
+      } else {
+        const missing = th.unlockStars - stars;
+        o.textContent = '🔒 ' + i18n.t(missing === 1 ? 'lockedThemeOne' : 'lockedTheme', { t: tname, n: missing });
+        o.disabled = true;
+      }
+      sel.append(o);
+    }
+    sel.value = levelIndex < GEN_INDEX ? String(levelIndex) : 'gen:' + ((generated && generated.theme) || 'farm');
   }
 
   function showDone() {
@@ -172,9 +210,15 @@
   }
 
   $('level-select').addEventListener('change', e => {
-    const i = parseInt(e.target.value, 10);
-    loadLevel(i, i === GEN_INDEX);
+    const v = e.target.value;
+    if (v.startsWith('gen:')) loadLevel(GEN_INDEX, true, v.slice(4));
+    else loadLevel(parseInt(v, 10));
     e.target.blur();
+  });
+  $('btn-unlock-later').addEventListener('click', () => { $('unlock').hidden = true; });
+  $('btn-unlock-play').addEventListener('click', () => {
+    $('unlock').hidden = true;
+    loadLevel(GEN_INDEX, true, unlockTheme);
   });
   $('btn-reset').addEventListener('click', () => loadLevel(levelIndex));
   $('btn-again').addEventListener('click', () => loadLevel(levelIndex));

@@ -31,7 +31,7 @@
   function fresh() {
     const skills = {};
     for (const s of SKILLS) skills[s] = freshSkill();
-    return { version: 1, skills, totalStars: 0, rounds: 0, puzzles: 0 };
+    return { version: 1, skills, totalStars: 0, rounds: 0, puzzles: 0, themesSeen: ['farm'] };
   }
 
   function normalize(p) {
@@ -47,6 +47,7 @@
       };
     }
     for (const f of ['totalStars', 'rounds', 'puzzles']) out[f] = Math.max(0, p[f] | 0);
+    if (Array.isArray(p.themesSeen)) out.themesSeen = Array.from(new Set(['farm', ...p.themesSeen.filter(t => typeof t === 'string')]));
     return out;
   }
 
@@ -114,6 +115,20 @@
     return 1;
   }
 
+  /**
+   * Themes that just became available (enough stars) and were not announced yet.
+   * Marks them as announced.
+   */
+  function newlyUnlocked() {
+    const p = get();
+    const fresh = TG.themes.unlocked(p.totalStars).filter(t => !p.themesSeen.includes(t));
+    if (fresh.length) {
+      p.themesSeen.push(...fresh);
+      save();
+    }
+    return fresh;
+  }
+
   function reset() {
     current = fresh();
     save();
@@ -124,5 +139,8 @@
     current = normalize(p);
   }
 
-  TG.progress = { KEY, SKILLS, MAX_LEVEL, RANGES, fresh, normalize, applyResult, puzzleStars, get, record, level, limit, reset, use };
+  TG.progress = {
+    KEY, SKILLS, MAX_LEVEL, RANGES, fresh, normalize, applyResult, puzzleStars, get, record, level, limit,
+    newlyUnlocked, reset, use,
+  };
 })(globalThis.TG = globalThis.TG || {});

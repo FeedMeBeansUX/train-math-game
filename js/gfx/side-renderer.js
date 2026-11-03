@@ -180,22 +180,64 @@
     }
 
     drawNear(ctx, offset, theme) {
-      // Ground
-      ctx.fillStyle = '#4f7f36';
+      // Ground (dusty at construction sites)
+      const ground = { construction: ['#6e6b45', '#7d7a50'], racing: ['#4f8a3a', '#5c9a44'] }[theme] || ['#4f7f36', '#5c8c3f'];
+      ctx.fillStyle = ground[0];
       ctx.fillRect(0, 206, W, H - 206);
-      ctx.fillStyle = '#5c8c3f';
+      ctx.fillStyle = ground[1];
       ctx.fillRect(0, 206, W, 2);
-      // Objects on a 56 px grid in this layer's own coordinates
+      // Objects on a 56 px grid in this layer's own coordinates, different per theme
       const cell = 56;
       const first = Math.floor(offset / cell) - 1;
       for (let c = first; c < first + W / cell + 3; c++) {
         const n = hash2(c, 0, 101);
         const x = Math.round(c * cell - offset + hash2(c, 1, 102) * 24);
+        this.nearObject(ctx, theme, n, c, x);
+      }
+    }
+
+    nearObject(ctx, theme, n, c, x) {
+      if (theme === 'construction') {
+        if (n < 0.2) { ctx.drawImage(SS.sideCone(), x, 199); ctx.drawImage(SS.sideCone(), x + 12, 199); }
+        else if (n < 0.38) ctx.drawImage(SS.barrier(), x, 198);
+        else if (n < 0.52) ctx.drawImage(S.obstacle('construction', 'T', 1), x, 180);
+        else if (n < 0.62) ctx.drawImage(SS.bush(c & 7), x, 196);
+        else if (n < 0.72) this.drawFence(ctx, x, 196, 40);
+      } else if (theme === 'racing') {
+        if (n < 0.24) ctx.drawImage(SS.tyreWall(), x, 196);
+        else if (n < 0.38) ctx.drawImage(SS.flagPole(), x, 184);
+        else if (n < 0.54) ctx.drawImage(SS.billboard(c & 7), x, 186);
+        else if (n < 0.64) ctx.drawImage(SS.bush(c & 7), x, 196);
+        else if (n < 0.74) ctx.drawImage(S.tree(c & 3), x, 182);
+      } else if (theme === 'town') {
+        if (n < 0.2) this.drawLamp(ctx, x);
+        else if (n < 0.38) ctx.drawImage(SS.bush(c & 7), x, 196);
+        else if (n < 0.52) { ctx.drawImage(SS.bicycle(c & 7), x, 198); ctx.drawImage(SS.bicycle((c + 1) & 7), x + 12, 198); }
+        else if (n < 0.64) ctx.drawImage(S.tree(c & 3), x, 182);
+        else if (n < 0.72) this.drawBench(ctx, x);
+      } else {
         if (n < 0.22) ctx.drawImage(SS.bush(c & 7), x, 196);
-        else if (n < 0.36 && theme === 'farm') ctx.drawImage(SS.haybale(), x, 197);
+        else if (n < 0.36) ctx.drawImage(SS.haybale(), x, 197);
         else if (n < 0.52) ctx.drawImage(S.tree(c & 3), x, 182);
         else if (n < 0.7) this.drawFence(ctx, x, 196, 40);
       }
+    }
+
+    drawLamp(ctx, x) {
+      ctx.fillStyle = '#2f3135';
+      ctx.fillRect(x, 180, 2, 30);
+      ctx.fillRect(x - 3, 178, 8, 3);
+      ctx.fillStyle = '#ffe58a';
+      ctx.fillRect(x - 2, 181, 6, 1);
+    }
+
+    drawBench(ctx, x) {
+      ctx.fillStyle = '#6b4a2f';
+      ctx.fillRect(x, 202, 20, 2);
+      ctx.fillRect(x, 197, 20, 2);
+      ctx.fillStyle = '#2f3135';
+      ctx.fillRect(x + 2, 204, 2, 5);
+      ctx.fillRect(x + 16, 204, 2, 5);
     }
 
     drawFence(ctx, x, y, len) {

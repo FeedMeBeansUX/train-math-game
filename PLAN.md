@@ -115,9 +115,23 @@ Each phase ends with something playable in the browser.
 - Total stars in the top bar. Parent settings: adaptive on/off, unloading by hand, division, and a progress
   overview (level and recent results per skill, totals) with a reset button. All saved in the browser.
 
-### Phase 7 — Themes and progression
-- Themes: farm, construction, racing, garage, town. Each has its own stations, goods, colours and side-view
-  background. A new theme unlocks after a few rounds.
+### Phase 7 — Themes and progression ✅
+- Four themes, four stations each, with their own goods, top-down ground and obstacles, side-view landscape
+  and near objects:
+  - **Boerderij / Farm**: farm, bakery, mill, market — fields, windmills, hay bales.
+  - **Bouwen / Construction** (12 ★): building site (tower crane, scaffolding), quarry, sawmill, road works —
+    dry ground with bare earth, sand heaps, concrete blocks, cones and barriers; bricks, planks, cement,
+    helmets, wheelbarrows, logs, stones, traffic cones.
+  - **Racen / Racing** (30 ★): garage, race track (grandstand full of spectators), fuel station (canopy and
+    pumps), car wash — mown stripes, tyre stacks, kerbs, billboards, chequered flags; tyres, oil, flags,
+    soap, sponges.
+  - **Stad / Town** (50 ★): school (bell tower), post office, shop, toy shop — houses, a row of Dutch gabled
+    houses and church towers, lamp posts, bicycles, benches; books, pencils, letters, bananas, milk, bread,
+    balls, teddy bears.
+- Themes unlock with the total number of stars; a "Nieuw thema!" dialog offers to play the new theme
+  straight away. The puzzle menu has a "Nieuwe puzzel" entry per theme; locked ones show the stars still
+  needed. Hand-made puzzles stay on the farm.
+- Generic station buildings show a sign with the station's main good, so every station is recognisable.
 
 ### Phase 8 — Art and sound
 - Try out art styles (palette, tile size, amount of detail) side by side and pick one, then go over all sprites.
