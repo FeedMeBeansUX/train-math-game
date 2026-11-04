@@ -221,6 +221,8 @@ select { padding: 4px 8px; }
 }
 
 .actions { display: flex; gap: 8px; }
+/* The screen buttons sit at the bottom of the sidebar */
+.panel > .actions { margin-top: auto; }
 
 /* ------------------------------------------------------------ station labels on the map */
 
@@ -358,12 +360,13 @@ select { padding: 4px 8px; }
   line-height: 1.25;
 }
 
+/* Mini-map in the sidebar */
+.map-card { padding: 4px; }
 #minimap {
-  top: calc(var(--px) * 6);
-  right: calc(var(--px) * 6);
+  display: block;
+  margin: 0 auto;
   image-rendering: pixelated;
   border: 3px solid var(--card-edge);
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
 }
 
 .orders {
@@ -387,7 +390,7 @@ select { padding: 4px 8px; }
 .sentence .second { font-size: 14px; font-style: italic; }
 
 .messages {
-  left: calc(var(--px) * 6);
+  right: calc(var(--px) * 6);
   top: calc(var(--px) * 6);
   max-width: 23%;
   display: grid;

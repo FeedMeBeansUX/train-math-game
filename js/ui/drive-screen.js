@@ -674,8 +674,10 @@
         box.style.height = this.dom.canvas.style.height;
       }
       this.dom.board.style.setProperty('--px', s + 'px');
+      // Mini-map in the sidebar: as wide as its card (minus padding and the map's border)
       const mm = this.dom.minimap;
-      const k = Math.max(1, Math.round(s));
+      const room = mm.parentElement.clientWidth - 8 - 6;
+      const k = Math.max(1, room / mm.width);
       mm.style.width = mm.width * k + 'px';
       mm.style.height = mm.height * k + 'px';
       this.positionSigns();
