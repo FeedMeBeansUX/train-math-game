@@ -2,16 +2,17 @@
  * The driving screen: side view of the train, the orders, loading goods,
  * a mini-map and the list of stations to travel to.
  *
- * Game loop of a delivery round (logic in TG.round):
- *   1. At the start station: load goods by clicking the crates on the
- *      platform (or the + buttons). Clicking goods in the train puts them back.
- *   2. Pick a station: the train finds its own way there (TG.route).
- *   3. On arrival the station takes what it ordered; the player is told what
- *      was delivered, what is still missing and what is left in the train.
- *   4. When every order is done: a summary with 1-3 stars.
- * What is ordered comes from the maths engine (TG.maths), one skill per round.
- * In passenger rounds the player picks the number of carriages instead of
- * loading goods; passengers board when the train leaves the start.
+ * Game loop of a delivery round (logic in TG.round, sums in TG.maths):
+ *   1. At the start station the maths card shows a sum with four answer buttons;
+ *      an answer loads (or takes out) that many goods. A wrong amount leads to a
+ *      follow-up sum ("5 + ... = 7") until the wagon holds exactly the right amount.
+ *      The train cannot leave before that.
+ *   2. Pick a station (or set the switches): the train finds its way there.
+ *   3. At the station the goods come off the same way: a sum, then follow-up sums
+ *      (unload more, or put some back) until the station has exactly what it ordered.
+ *   4. When every order is done: a summary with 1-3 stars (fixes cost stars).
+ * In passenger rounds the sum sets the number of carriages; passengers board
+ * when the train leaves and get off by themselves.
  */
 (function (TG) {
   'use strict';
@@ -82,17 +83,6 @@
     return p;
   }
 
-  /** Count shown as dots in ten frames: blocks of ten, rows of five (like the wagons). */
-  function dotsEl(n) {
-    const box = el('span', 'dots');
-    for (let t = 0; t < n; t += 10) {
-      const ten = el('span', 'ten');
-      for (let i = t; i < Math.min(n, t + 10); i++) ten.append(el('span', 'dot'));
-      box.append(ten);
-    }
-    return box;
-  }
-
   class DriveScreen {
     constructor(dom, callbacks) {
       this.dom = dom;
@@ -105,8 +95,6 @@
       this.lastTime = 0;
       this.wheelDist = 0;
       window.addEventListener('resize', () => { if (this.active) this.layout(); });
-      dom.canvas.addEventListener('mousedown', e => this.onCanvasClick(e));
-      dom.canvas.addEventListener('mousemove', e => this.onCanvasMove(e));
       requestAnimationFrame(t => this.frame(t));
     }
 
@@ -149,8 +137,9 @@
       this.flyers = [];
       this.pendingLoad = {};
       this.pendingPile = {};
-      this.unloading = null;
-      this.answered = new Set(); // sums already answered this round
+      this.stationTask = null;   // unloading at a station: { orderId, started }
+      this.answered = new Set(); // goods (or 'wagons') whose first sum has been answered
+      this.attempt = 0;          // varies the answer choices of follow-up sums
       this.puffTimer = 0;
       this.messages = [];
       this.dom.roundDone.hidden = true;
@@ -177,7 +166,7 @@
 
     /** Switch mode: leave along the track as the switches are set. */
     departAlongTrack() {
-      if (this.trip || this.busy) return;
+      if (!this.canDepart()) return;
       const res = R.followTrack(this.state, this.current, this.switchState);
       if (!res || !res.end) {
         this.messages = [Object.assign(i18n.both('switchWrong'), { kind: 'warn' })];
@@ -197,7 +186,7 @@
     }
 
     depart(toId, routeOverride) {
-      if (this.trip || this.busy) return;
+      if (!this.canDepart()) return;
       const route = routeOverride || R.findRoute(this.state, this.graph, this.current, toId);
       if (!route) return;
       RD.recordDeparture(this.round, this.current === this.startId);
@@ -212,7 +201,7 @@
       this.flyers = [];
       this.pendingLoad = {};
       this.messages = [];
-      this.unloading = null;
+      this.stationTask = null;
       const boarding = this.round.mode === 'passengers' && this.current === this.startId ? this.boardPassengers() : 0;
       this.trip = { route, to: toId, D, worldEnd, motion: motion(D), t: -(WHISTLE + boarding), lastPos: 0 };
       for (let i = 0; i < 6; i++) this.puff(this.front + CHIMNEY_DX, 0, 1.4);
@@ -250,7 +239,7 @@
       TG.sound.play('hiss');
       this.idleScene();
       if (this.current === this.startId) {
-        this.messages = [i18n.both('loadHint')];
+        this.messages = [];
         this.refresh();
       } else {
         this.unloadHere();
@@ -258,8 +247,8 @@
     }
 
     /**
-     * Hand over the goods this station ordered. Normally automatic; when unloading by hand
-     * (division rounds or the parent setting) the player first chooses how many come off.
+     * Arriving at a station. Passengers get off by themselves; goods come off with the maths
+     * card (stationAnswer) until the station has exactly what it ordered.
      */
     unloadHere() {
       // Ordered rounds: a station that is not next does not take anything yet
@@ -271,39 +260,101 @@
         this.refresh();
         return;
       }
-      const order = RD.openOrderAt(this.round, this.current);
-      if (this.plan.manual && order && RD.count(this.round, order.good) > 0) {
-        this.unloading = { stationId: this.current, good: order.good, n: 0 };
-        this.messages = [i18n.both('askUnload', { goods: l => i18n.goodsWord(order.good, 2, l) })];
-        this.refresh();
+      if (this.passengers()) {
+        const before = this.round.load.slice();
+        const res = RD.deliverAt(this.round, this.current);
+        this.animateDelivery(before, res.removed, res.deliveries);
         return;
       }
-      const before = this.round.load.slice();
-      const res = RD.deliverAt(this.round, this.current);
-      this.animateDelivery(before, res.removed, res.deliveries);
-    }
-
-    setUnloadCount(n) {
-      const u = this.unloading;
-      if (!u) return;
-      u.n = Math.max(0, Math.min(RD.count(this.round, u.good), n));
+      const o = RD.orderAt(this.round, this.current);
+      if (!o) {
+        this.messages = [i18n.both('nothingHere')];
+      } else if (RD.count(this.round, o.good) === 0 && o.delivered < o.amount) {
+        this.messages = this.deliveryMessages([{ good: o.good, given: 0, missing: o.amount - o.delivered, left: 0 }]);
+        TG.sound.play('mistake');
+      } else {
+        this.stationTask = { orderId: o.id, started: false };
+        this.messages = [];
+      }
       this.refresh();
     }
 
-    confirmUnload() {
-      const u = this.unloading;
-      if (!u || this.busy) return;
-      const before = this.round.load.slice();
-      const res = RD.unloadAt(this.round, u.stationId, u.n);
-      if (!res.ok) {
-        this.messages = [Object.assign(i18n.both(res.reason === 'tooMany' ? 'tooMany' : 'tooFew'), { kind: 'warn' })];
-        TG.sound.play('mistake');
-        if (this.plan.kind === 'divide') this.messages.push(i18n.both('fairHint'));
+    stationOrder() {
+      return this.stationTask && this.round.orders.find(o => o.id === this.stationTask.orderId);
+    }
+
+    /** An answer at a station: unload that many onto the platform, or put that many back in the train. */
+    stationAnswer(pr, n) {
+      const o = this.stationOrder();
+      if (!o) return;
+      const good = o.good;
+      const available = pr.action === 'takeback' ? o.delivered : RD.count(this.round, good);
+      if (n > available) return this.notThatMany(good, pr.action === 'takeback' ? 'notThatManyHere' : 'notThatMany');
+      this.stationTask.started = true;
+      const key = this.current + ':' + good;
+      const p = Math.max(0, Math.min(this.deliveredGoods(this.current).concat([good]).indexOf(good), MAX_PILES - 1));
+      const pilePos = k => this.renderer.pileItemPos(0, p, Math.min(9, Math.max(0, k)), false, good);
+      if (pr.action === 'takeback') {
+        const was = o.delivered;
+        const k = RD.takeBack(this.round, o, n);
+        TG.sound.play('load');
+        for (let i = 0; i < k; i++) {
+          this.pendingLoad[good] = (this.pendingLoad[good] || 0) + 1;
+          this.fly(good, pilePos(was - 1 - i), this.itemPos(good), -i * 0.07, () => {
+            this.pendingLoad[good]--;
+            TG.sound.play('pop');
+          });
+        }
+      } else {
+        const removed = RD.unloadTo(this.round, o, n);
+        TG.sound.play('unload');
+        removed.forEach((idx, i) => {
+          this.pendingPile[key] = (this.pendingPile[key] || 0) + 1;
+          this.fly(good, this.itemPos(good), pilePos(o.delivered - removed.length + i), -i * 0.07, () => {
+            this.pendingPile[key]--;
+            TG.sound.play('pop');
+          });
+        });
+      }
+      this.waitForFlights(() => this.checkStation());
+    }
+
+    /** After unloading: done, or a follow-up sum (or, with nothing left in the train, fetch more). */
+    checkStation() {
+      const o = this.stationOrder();
+      if (!o) return;
+      if (o.delivered === o.amount) {
+        this.stationTask = null;
+        this.messages = this.deliveryMessages([{ good: o.good, given: o.amount, missing: 0, left: RD.count(this.round, o.good) }]);
+        TG.sound.play('deliver');
         this.refresh();
+        if (RD.isComplete(this.round)) setTimeout(() => this.showRoundDone(), 900);
         return;
       }
-      this.unloading = null;
-      this.animateDelivery(before, res.removed, [res.delivery]);
+      this.round.corrections++;
+      TG.sound.play('mistake');
+      if (o.delivered < o.amount && RD.count(this.round, o.good) === 0) {
+        this.stationTask = null;
+        this.messages = this.deliveryMessages([{ good: o.good, given: o.delivered, missing: o.amount - o.delivered, left: 0 }]);
+      } else {
+        this.messages = [Object.assign(i18n.both(o.delivered < o.amount ? 'tooFew' : 'tooMany'), { kind: 'warn' })];
+      }
+      this.refresh();
+    }
+
+    /** Block input while goods are flying, then run `done`. */
+    waitForFlights(done) {
+      this.busy = true;
+      this.afterFlights = () => {
+        this.busy = false;
+        done();
+      };
+      if (!this.flyers.length) {
+        const f = this.afterFlights;
+        this.afterFlights = null;
+        f();
+      }
+      this.refresh();
     }
 
     /** Goods fly from the wagons onto the platform; then the result is shown. */
@@ -375,6 +426,13 @@
 
     supplyGoods() {
       return RD.goodsNeeded(this.round);
+    }
+
+    /** The train may leave when the load is right (at the start) or this station is done. */
+    canDepart() {
+      if (this.trip || this.busy) return false;
+      if (this.current === this.startId) return !this.currentProblem();
+      return !this.stationTask;
     }
 
     /** Freight trains have one wagon per kind of good, in the order of the orders list. */
@@ -605,37 +663,6 @@
       this.positionSigns();
     }
 
-    // ------------------------------------------------------------ mouse on the side view
-
-    artPoint(e) {
-      const r = this.dom.canvas.getBoundingClientRect();
-      return { x: ((e.clientX - r.left) / r.width) * SS.W, y: ((e.clientY - r.top) / r.height) * SS.H };
-    }
-
-    hit(e) {
-      if (!this.atStart() || this.passengers()) return null;
-      const p = this.artPoint(e);
-      const goods = this.supplyGoods().slice(0, MAX_PILES);
-      const pile = this.renderer.pileAt(0, goods.length, p.x, p.y, this.camera);
-      if (pile >= 0) return { load: goods[pile] };
-      const wagons = this.wagonGoods();
-      const w = this.renderer.wagonAt(this.front, wagons.length, p.x, p.y, this.camera);
-      const good = w >= 0 ? wagons[wagons.length - 1 - w] : null;
-      if (good && RD.count(this.round, good) > 0) return { unload: good };
-      return null;
-    }
-
-    onCanvasClick(e) {
-      if (e.button !== 0) return;
-      const h = this.hit(e);
-      if (h && h.load) this.loadGood(h.load);
-      if (h && h.unload) this.unloadGood(h.unload);
-    }
-
-    onCanvasMove(e) {
-      this.dom.canvas.style.cursor = this.hit(e) ? 'pointer' : 'default';
-    }
-
     // ------------------------------------------------------------ layout and panels
 
     layout() {
@@ -682,36 +709,91 @@
       this.refreshStatus();
       this.refreshOrders();
       this.refreshMessages();
-      this.refreshLoad();
       this.refreshDestinations();
       this.refreshMaths();
     }
 
     // ------------------------------------------------------------ the sum with answer buttons
 
-    /** The sum to show now: unloading by hand at a station, or the next unanswered loading sum. */
+    /**
+     * The sum to show now. At the start: the first sum for each good, then follow-up sums until
+     * the wagon is right. At a station: the unloading sum, then follow-ups until the station is right.
+     */
     currentProblem() {
       if (this.trip || this.busy) return null;
-      if (this.unloading) {
-        const o = RD.openOrderAt(this.round, this.unloading.stationId);
-        return o ? TG.maths.unloadProblem(this.plan, o, this.round.orders.indexOf(o) * 31 + 7) : null;
+      const seed = this.attempt * 131 + 17;
+      if (this.current !== this.startId) {
+        const o = this.stationOrder();
+        if (!o) return null;
+        if (!this.stationTask.started) return TG.maths.unloadProblem(this.plan, o, seed + o.amount);
+        return TG.maths.stationCorrection(o.good, o.delivered, o.amount, seed);
       }
-      if (this.current !== this.startId) return null;
-      const i = this.plan.problems.findIndex((p, k) => !this.answered.has(k));
-      return i < 0 ? null : Object.assign({ index: i }, this.plan.problems[i]);
+      if (this.passengers()) {
+        const waiting = RD.waitingPassengers(this.round);
+        const base = this.plan.problems[0];
+        if (!waiting || !base) return null;
+        if (!this.answered.has('wagons')) return base;
+        if (this.round.wagons * this.round.perWagon === waiting) return null;
+        return Object.assign({}, base, { choices: TG.maths.choicesFor(base.answer, seed, 1) });
+      }
+      for (const good of this.supplyGoods()) {
+        const need = RD.needAtStart(this.round, good);
+        const have = RD.count(this.round, good);
+        if (!this.answered.has(good) && need > 0 && have !== need) {
+          const base = this.plan.problems.find(p => p.good === good);
+          if (base) return base;
+        }
+        const fix = TG.maths.trainCorrection(good, have, need, seed + good.length);
+        if (fix) return fix;
+      }
+      return null;
     }
 
-    /** An answer button: load / take out / unload that many, or set that many carriages. */
+    /** An answer button: load / take out / unload / put back that many, or set that many carriages. */
     answer(pr, n) {
-      if (pr.index != null) this.answered.add(pr.index);
-      if (this.unloading) {
-        this.setUnloadCount(n);
-        this.confirmUnload();
-        return;
+      this.attempt++;
+      if (this.current !== this.startId) return this.stationAnswer(pr, n);
+      if (pr.action === 'wagons') {
+        this.answered.add('wagons');
+        this.setWagons(n);
+        return this.checkLoading(pr);
       }
-      if (pr.action === 'wagons') this.setWagons(n);
-      else if (pr.action === 'unload') this.unloadMany(pr.good, n);
+      if (pr.action === 'unload' && n > RD.count(this.round, pr.good)) return this.notThatMany(pr.good, 'notThatMany');
+      this.answered.add(pr.good);
+      if (pr.action === 'unload') this.unloadMany(pr.good, n);
       else this.loadMany(pr.good, n);
+      this.waitForFlights(() => this.checkLoading(pr));
+    }
+
+    /** An answer asking for more goods than there are: a mistake, and the same sum with new choices. */
+    notThatMany(good, key) {
+      this.round.corrections++;
+      this.messages = [Object.assign(i18n.both(key, { goods: l => i18n.goodsWord(good, 2, l) }), { kind: 'warn' })];
+      TG.sound.play('mistake');
+      this.refresh();
+    }
+
+    /** After loading: praise, or a gentle "too few / too many" (the follow-up sum appears by itself). */
+    checkLoading(pr) {
+      let ok;
+      if (pr.action === 'wagons') {
+        const seats = this.round.wagons * this.round.perWagon, waiting = RD.waitingPassengers(this.round);
+        ok = seats === waiting;
+        this.messages = ok ? [] : [Object.assign(i18n.both(seats < waiting ? 'wagonsTooFew' : 'wagonsTooMany'), { kind: 'warn' })];
+      } else {
+        const need = RD.needAtStart(this.round, pr.good), have = RD.count(this.round, pr.good);
+        ok = have === need;
+        this.messages = ok
+          ? [Object.assign(i18n.both('loadedOk', { n: have, goods: l => i18n.goodsWord(pr.good, have, l) }), { kind: 'ok' })]
+          : [Object.assign(i18n.both(have < need ? 'tooFew' : 'tooMany'), { kind: 'warn' })];
+      }
+      if (ok) {
+        TG.sound.play('connect');
+        if (!this.currentProblem()) this.messages.push(Object.assign(i18n.both('allLoaded'), { kind: 'ok' }));
+      } else {
+        this.round.corrections++;
+        TG.sound.play('mistake');
+      }
       this.refresh();
     }
 
@@ -721,9 +803,13 @@
       box.textContent = '';
       box.hidden = !pr;
       if (!pr) return;
-      const q = pr.action === 'wagons' ? i18n.both('howManyWagons')
-        : this.unloading ? i18n.both('askUnload', { goods: l => i18n.goodsWord(pr.good, 2, l) })
-          : i18n.both(pr.action === 'unload' ? 'qTakeOut' : 'qLoad', { goods: l => i18n.goodsWord(pr.good, 2, l) });
+      const kind = L.stationById(this.state, this.current).kind;
+      const q = i18n.both(pr.question || 'qLoad', {
+        n: pr.n,
+        goods: l => i18n.goodsWord(pr.good, pr.n != null ? pr.n : 2, l),
+        goods2: l => i18n.goodsWord(pr.good, 2, l),
+        s: l => { const ph = i18n.stationPhrase(kind, l); return ph[0].toUpperCase() + ph.slice(1); },
+      });
       box.append(sentenceEl(q, 'question'));
       const sum = el('div', 'sum');
       for (const t of pr.tokens) {
@@ -774,7 +860,7 @@
       const next = RD.nextOrder(this.round);
       this.round.orders.forEach((o, i) => {
         const st = L.stationById(this.state, o.stationId);
-        const done = RD.remaining(o) === 0;
+        const done = o.delivered === o.amount; // too many is not done yet
         const li = el('li', done ? 'done' : this.round.ordered && o === next ? 'current' : '');
         if (this.round.ordered) li.append(el('span', 'step', String(i + 1)));
         li.append(goodIconEl(o.good));
@@ -790,7 +876,8 @@
         list.append(li);
       });
       box.append(list);
-      for (const note of this.plan.notes) {
+      const asked = new Set(['howManyOnTrain', 'alreadyOne', 'alreadyMany', 'howManyWagons']); // the maths card asks these now
+      for (const note of this.plan.notes.filter(nt => !asked.has(nt.key))) {
         const v = note.vars;
         const vars = {};
         for (const k in v) if (typeof v[k] === 'number') vars[k] = v[k];
@@ -805,125 +892,6 @@
       box.textContent = '';
       box.hidden = !this.messages.length;
       for (const m of this.messages) box.append(sentenceEl(m, m.kind || ''));
-    }
-
-    refreshLoad() {
-      const box = this.dom.load;
-      box.textContent = '';
-      box.append(el('h2', null, i18n.t('load')));
-      if (this.unloading) box.append(this.unloadBox());
-      if (this.passengers()) {
-        this.refreshCarriages(box);
-        return;
-      }
-      const goods = Array.from(new Set([...this.supplyGoods(), ...this.round.load]));
-      const canLoad = this.atStart();
-      for (const good of goods) {
-        const n = RD.count(this.round, good);
-        const row = el('div', 'load-row');
-        row.append(goodIconEl(good));
-        const label = el('div', 'load-label');
-        const word = el('span', 'name');
-        word.append(el('span', 'main lang-' + i18n.getLang(), i18n.goodsWord(good, 2)));
-        word.append(el('span', 'second lang-' + i18n.other(), i18n.goodsWord(good, 2, i18n.other())));
-        label.append(word, dotsEl(n));
-        row.append(label);
-        const minus = el('button', 'btn round-btn', '−');
-        minus.type = 'button';
-        minus.disabled = !canLoad || n === 0;
-        minus.setAttribute('aria-label', '−1');
-        minus.addEventListener('click', () => this.unloadGood(good));
-        const plus = el('button', 'btn round-btn', '+');
-        plus.type = 'button';
-        plus.disabled = !canLoad || RD.isFull(this.round);
-        plus.setAttribute('aria-label', '+1');
-        plus.addEventListener('click', () => this.loadGood(good));
-        row.append(minus, el('span', 'load-count', String(n)), plus);
-        box.append(row);
-      }
-      if (!this.round.load.length && !canLoad) box.append(el('p', 'hint', i18n.t('trainEmpty')));
-      if (canLoad) box.append(el('p', 'hint', i18n.t('loadHint')));
-    }
-
-    /** Unloading by hand: choose how many of the good come off, then press Unload. */
-    unloadBox() {
-      const u = this.unloading;
-      const have = RD.count(this.round, u.good);
-      const boxEl = el('div', 'unload-box');
-      const row = el('div', 'load-row');
-      row.append(goodIconEl(u.good));
-      const label = el('div', 'load-label');
-      const word = el('span', 'name');
-      word.append(el('span', 'main lang-' + i18n.getLang(), i18n.t('unload')));
-      word.append(el('span', 'second lang-' + i18n.other(), i18n.t('unload', null, i18n.other())));
-      label.append(word, dotsEl(u.n));
-      row.append(label);
-      const minus = el('button', 'btn round-btn', '−');
-      minus.type = 'button';
-      minus.disabled = this.busy || u.n === 0;
-      minus.addEventListener('click', () => this.setUnloadCount(u.n - 1));
-      const plus = el('button', 'btn round-btn', '+');
-      plus.type = 'button';
-      plus.disabled = this.busy || u.n >= have;
-      plus.addEventListener('click', () => this.setUnloadCount(u.n + 1));
-      row.append(minus, el('span', 'load-count', String(u.n)), plus);
-      const go = el('button', 'btn primary unload-go', i18n.t('unload') + ' ✓');
-      go.type = 'button';
-      go.disabled = this.busy || u.n === 0;
-      go.addEventListener('click', () => this.confirmUnload());
-      boxEl.append(row, go);
-      return boxEl;
-    }
-
-    /** Passenger rounds: number of carriages, and seats shown as groups of dots (c, c, c ...). */
-    refreshCarriages(box) {
-      const r = this.round;
-      const canChange = this.atStart();
-      const row = el('div', 'load-row');
-      const icon = el('canvas', 'good-icon wide');
-      const t = SS.WAGON_TYPES[r.wagonType];
-      icon.width = t.w;
-      icon.height = t.h;
-      icon.getContext('2d').drawImage(SS.wagonSprite(r.wagonType, 0), 0, 0);
-      row.append(icon);
-      const label = el('div', 'load-label');
-      const word = el('span', 'name');
-      word.append(el('span', 'main lang-' + i18n.getLang(), i18n.t('wagons')));
-      word.append(el('span', 'second lang-' + i18n.other(), i18n.t('wagons', null, i18n.other())));
-      label.append(word);
-      row.append(label);
-      const minus = el('button', 'btn round-btn', '−');
-      minus.type = 'button';
-      minus.disabled = !canChange || r.wagons <= 1 || (r.wagons - 1) * r.perWagon < r.load.length;
-      minus.addEventListener('click', () => this.setWagons(r.wagons - 1));
-      const plus = el('button', 'btn round-btn', '+');
-      plus.type = 'button';
-      plus.disabled = !canChange || r.wagons >= TG.maths.MAX_COACHES;
-      plus.addEventListener('click', () => this.setWagons(r.wagons + 1));
-      row.append(minus, el('span', 'load-count', String(r.wagons)), plus);
-      box.append(row);
-
-      // One group of seat dots per carriage; filled dots are passengers on board
-      const groups = el('div', 'seat-groups');
-      const onBoard = RD.count(r, 'passenger');
-      for (let w = 0; w < r.wagons; w++) {
-        const g = el('span', 'seat-group');
-        for (let k = 0; k < r.perWagon; k++) {
-          const seat = w * r.perWagon + k;
-          g.append(el('span', 'dot' + (seat < onBoard ? '' : ' empty')));
-        }
-        groups.append(g);
-      }
-      box.append(groups);
-      const prow = el('div', 'load-row passengers-row');
-      prow.append(goodIconEl('passenger'));
-      const plabel = el('div', 'load-label');
-      const pword = el('span', 'name');
-      pword.append(el('span', 'main lang-' + i18n.getLang(), i18n.goodsWord('passenger', 2)));
-      pword.append(el('span', 'second lang-' + i18n.other(), i18n.goodsWord('passenger', 2, i18n.other())));
-      plabel.append(pword);
-      prow.append(plabel, el('span'), el('span', 'load-count', String(onBoard)), el('span'));
-      box.append(prow);
     }
 
     /** Switch mode: switch buttons, where the train will go, and a Depart button. */
@@ -957,9 +925,10 @@
           ? i18n.both('goesTo', { s: l => i18n.stationPhrase(to.kind, l) })
           : i18n.both('switchWrong'), to ? 'prediction ok' : 'prediction warn'));
       }
+      if (!this.trip && !this.canDepart()) d.destinations.append(el('p', 'hint', i18n.t('solveFirst')));
       const go = el('button', 'btn primary depart-btn', i18n.t('depart'));
       go.type = 'button';
-      go.disabled = !!this.trip || this.busy || !(this.preview && this.preview.end);
+      go.disabled = !this.canDepart() || !(this.preview && this.preview.end);
       go.addEventListener('click', () => this.departAlongTrack());
       d.destinations.append(go);
     }
@@ -968,11 +937,13 @@
       if (this.switchMode) return this.refreshSwitches();
       const d = this.dom;
       d.destinations.textContent = '';
+      const may = this.canDepart();
+      if (!this.trip && !may) d.destinations.append(el('p', 'hint', i18n.t('solveFirst')));
       for (const st of this.state.stations) {
         const here = st.id === this.current;
         const btn = el('button', 'destination' + (here ? ' here' : ''));
         btn.type = 'button';
-        btn.disabled = here || !!this.trip || this.busy;
+        btn.disabled = here || !may;
         btn.addEventListener('click', () => this.depart(st.id));
         const icon = el('canvas');
         icon.width = S.TILE;
@@ -1005,6 +976,8 @@
       for (const lo of left) {
         d.roundText.append(sentenceEl(i18n.both(lo.n === 1 ? 'leftOne' : 'leftMany', { k: lo.n, goods: l => i18n.goodsWord(lo.good, lo.n, l) })));
       }
+      const fixes = this.round.corrections || 0;
+      if (fixes > 0) d.roundText.append(sentenceEl(i18n.both(fixes === 1 ? 'fixesOne' : 'fixesMany', { k: fixes })));
       const early = this.round.orderMistakes || 0;
       if (early > 0) d.roundText.append(sentenceEl(i18n.both(early === 1 ? 'wrongStationOne' : 'wrongStationMany', { k: early })));
       const empty = this.round.emptySeats || 0;

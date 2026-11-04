@@ -49,7 +49,6 @@
     messages: $('messages'),
     minimap: $('minimap'),
     status: $('drive-status'),
-    load: $('load'),
     whereTo: $('whereto-heading'),
     destinations: $('destinations'),
     roundDone: $('round-done'),

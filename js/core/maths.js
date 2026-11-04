@@ -20,7 +20,10 @@
  * Problems are the sums shown above the train with four answer buttons, e.g.
  *   { good, tokens: [3, '+', '?', '=', 8], answer: 5, action: 'load', choices: [4, 5, 6, 8] }
  * A token is a number, an operator, '?' (the blank) or { icons: n } (goods to count).
- * action: 'load' (put that many in), 'unload' (take that many out), 'wagons' (set the carriages).
+ * action: 'load' (put that many in), 'unload' (take that many out), 'wagons' (set the carriages),
+ * 'takeback' (put that many back from the platform into the train).
+ * question: the i18n key of the question above the sum; n: the number that question mentions.
+ * A wrong answer leads to a follow-up sum (trainCorrection / stationCorrection) until it is right.
  * Notes are extra lines under the orders, e.g. "Er zitten al 3 kippen in de trein."
  * plan.manual: the player unloads by hand; plan.hideAmounts: order lines show no number (division).
  */
@@ -222,16 +225,16 @@
     if (plan.mode === 'passengers') {
       const o = plan.orders[0];
       const w = o.amount / plan.perWagon;
-      out.push({ good: 'passenger', tokens: ['?', '×', plan.perWagon, '=', o.amount], answer: w, action: 'wagons' });
+      out.push({ good: 'passenger', tokens: ['?', '×', plan.perWagon, '=', o.amount], answer: w, action: 'wagons', question: 'howManyWagons' });
     } else {
       for (const good of Array.from(new Set(plan.orders.map(o => o.good)))) {
         const amounts = plan.orders.filter(o => o.good === good).map(o => o.amount);
         const need = amounts.reduce((a, b) => a + b, 0);
         const p = plan.preload.filter(g => g === good).length;
-        if (plan.kind === 'missing') out.push({ good, tokens: [p, '+', '?', '=', need], answer: need - p, action: 'load' });
-        else if (plan.kind === 'takeaway') out.push({ good, tokens: [p, '−', '?', '=', need], answer: p - need, action: 'unload' });
-        else if (amounts.length > 1 && !plan.hideAmounts) out.push({ good, tokens: [...amounts.flatMap((a, i) => (i ? ['+', a] : [a])), '=', '?'], answer: need, action: 'load' });
-        else out.push({ good, tokens: [{ icons: need }, '=', '?'], answer: need, action: 'load' });
+        if (plan.kind === 'missing') out.push({ good, tokens: [p, '+', '?', '=', need], answer: need - p, action: 'load', question: 'qMore', n: p });
+        else if (plan.kind === 'takeaway') out.push({ good, tokens: [p, '−', '?', '=', need], answer: p - need, action: 'unload', question: 'qLess', n: p });
+        else if (amounts.length > 1 && !plan.hideAmounts) out.push({ good, tokens: [...amounts.flatMap((a, i) => (i ? ['+', a] : [a])), '=', '?'], answer: need, action: 'load', question: 'qLoad' });
+        else out.push({ good, tokens: [{ icons: need }, '=', '?'], answer: need, action: 'load', question: 'qLoad' });
       }
     }
     out.forEach((pr, i) => { pr.choices = choicesFor(pr.answer, seed + i * 7919, 1); }); // 0 is never a real answer
@@ -247,12 +250,39 @@
     const pr = plan.kind === 'divide'
       ? { good: order.good, tokens: [order.amount * plan.orders.length, ':', plan.orders.length, '=', '?'], answer: order.amount, action: 'unload' }
       : { good: order.good, tokens: [{ icons: need }, '=', '?'], answer: need, action: 'unload' };
+    pr.question = 'askUnload';
+    pr.choices = choicesFor(pr.answer, seed, 1);
+    return pr;
+  }
+
+  /**
+   * Follow-up sum at the warehouse when the wagon holds the wrong amount:
+   * "5 + ? = 7" (put more in) or "9 - ? = 7" (take some out). Null when it is right.
+   */
+  function trainCorrection(good, have, need, seed) {
+    if (have === need) return null;
+    const pr = have < need
+      ? { good, tokens: [have, '+', '?', '=', need], answer: need - have, action: 'load', question: 'qMore', n: have }
+      : { good, tokens: [have, '−', '?', '=', need], answer: have - need, action: 'unload', question: 'qLess', n: have };
+    pr.choices = choicesFor(pr.answer, seed, 1);
+    return pr;
+  }
+
+  /**
+   * Follow-up sum at a station when the platform has the wrong amount:
+   * "6 + ? = 10" (unload more) or "12 - ? = 10" (put some back in the train). Null when it is right.
+   */
+  function stationCorrection(good, delivered, amount, seed) {
+    if (delivered === amount) return null;
+    const pr = delivered < amount
+      ? { good, tokens: [delivered, '+', '?', '=', amount], answer: amount - delivered, action: 'unload', question: 'qStationMore', n: delivered }
+      : { good, tokens: [delivered, '−', '?', '=', amount], answer: delivered - amount, action: 'takeback', question: 'qStationLess', n: delivered };
     pr.choices = choicesFor(pr.answer, seed, 1);
     return pr;
   }
 
   TG.maths = {
     KINDS_BY_SKILL, MAX_COACHES, COACH_SIZES, FREIGHT_CAPACITY, FREIGHT_PER_WAGON, MULTIPLY_LEVELS, DIVIDE_LEVELS,
-    feasibleKinds, planRound, skillOf, choicesFor, loadingProblems, unloadProblem,
+    feasibleKinds, planRound, skillOf, choicesFor, loadingProblems, unloadProblem, trainCorrection, stationCorrection,
   };
 })(globalThis.TG = globalThis.TG || {});

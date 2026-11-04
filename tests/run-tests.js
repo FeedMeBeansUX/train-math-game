@@ -552,6 +552,58 @@ test('sums: the answer makes the sum true, four different choices including the 
   }
 });
 
+test('follow-up sums: too few means "have + ? = need", too many means "have - ? = need"', () => {
+  const few = M().trainCorrection('fuel', 5, 7, 1);
+  eq(few.tokens, [5, '+', '?', '=', 7]);
+  eq(few.answer, 2);
+  eq(few.action, 'load');
+  eq(few.question, 'qMore');
+  const many = M().trainCorrection('fuel', 9, 7, 1);
+  eq(many.tokens, [9, '−', '?', '=', 7]);
+  eq(many.action, 'unload');
+  eq(M().trainCorrection('fuel', 7, 7, 1), null);
+  const st = M().stationCorrection('tyre', 12, 10, 1);
+  eq(st.tokens, [12, '−', '?', '=', 10]);
+  eq(st.action, 'takeback');
+  eq(M().stationCorrection('tyre', 6, 10, 1).action, 'unload');
+  for (const pr of [few, many, st]) assert(pr.choices.includes(pr.answer) && pr.choices.length === 4);
+});
+test('unloading with answer buttons: too many can go back, the order is done only when exact', () => {
+  const orders = [{ id: 'o0', stationId: 'garage', good: 'tyre', amount: 10, delivered: 0 }];
+  const r = RD().createRound(orders, { preload: Array(14).fill('tyre') });
+  eq(RD().needAtStart(r, 'tyre'), 10);
+  const o = RD().orderAt(r, 'garage');
+  eq(RD().unloadTo(r, o, 12).length, 12);
+  eq(o.delivered, 12);
+  assert(!RD().isComplete(r), 'too many is not done');
+  eq(RD().orderAt(r, 'garage'), o, 'still needs fixing');
+  eq(RD().takeBack(r, o, 2), 2);
+  eq(o.delivered, 10);
+  eq(RD().count(r, 'tyre'), 4);
+  assert(RD().isComplete(r));
+  eq(RD().orderAt(r, 'garage'), null);
+  eq(RD().unloadTo(r, { good: 'tyre', delivered: 0, amount: 99 }, 50).length, 4, 'never more than the train holds');
+});
+test('corrections cost stars: one for the first, another after three', () => {
+  const orders = [{ id: 'o0', stationId: 'farm', good: 'hay', amount: 2, delivered: 2 }];
+  const r = RD().createRound(orders, {});
+  RD().recordDeparture(r, true);
+  eq(RD().stars(r), 3);
+  r.corrections = 1;
+  eq(RD().stars(r), 2);
+  r.corrections = 3;
+  eq(RD().stars(r), 1);
+});
+test('first sums carry their question: top up and take away mention what is already in the train', () => {
+  const st = (skill) => ({ maxNumber: 20, adaptive: false, skills: Object.assign({ count: false, add: false, subtract: false, multiply: false, divide: false }, { [skill]: true }) });
+  const s = L.createLevel(TG.LEVELS[0]);
+  const pa = M().planRound(s, st('add'), 3);
+  eq(pa.problems[0].question, 'qMore');
+  eq(pa.problems[0].n, pa.preload.length);
+  const ps = M().planRound(s, st('subtract'), 3);
+  eq(ps.problems[0].question, 'qLess');
+});
+
 console.log('generator');
 test('generated puzzles: valid and solvable at every level', () => {
   for (let level = 1; level <= TG.generator.PUZZLE_LEVELS.length; level++) {

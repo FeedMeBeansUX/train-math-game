@@ -167,6 +167,19 @@ Each phase ends with something playable in the browser.
 - Harder sums: level 1 already goes up to 15 for counting, addition and subtraction; every part is at least
   2 and amounts start at about half the level's range, so no more "bring 1 of this".
 
+### Iteration 2 — keep asking until it is right ✅
+- A wrong amount when loading leads to a new sum straight away, until the wagon is right:
+  too few → "Er zitten al 5 vaten in de trein. Hoeveel vaten doe je erbij?" (5 + … = 7);
+  too many → "Er zitten 9 vaten in de trein. Dat zijn er te veel. Hoeveel haal je eruit?" (9 − … = 7).
+  The train cannot leave before everything is loaded correctly ("Los eerst de som op.").
+- Unloading works the same at every station: the first sum (count the goods, or "12 : 3 = …" when sharing),
+  then follow-ups — "De Garage heeft er al 6. Hoeveel banden komen er nog bij?" (6 + … = 10) or
+  "… heeft er 12. Dat zijn er te veel. Hoeveel gaan er terug in de trein?" (12 − … = 10).
+  Asking for more than there is: "Zoveel … zitten er niet in de trein." and the same sum with new choices.
+- Passenger rounds: a wrong number of carriages gets "te weinig / te veel wagons" and the sum again.
+- Every fix costs a little: one star for the first, another after three; the summary says how many.
+- The "In de trein" panel and clicking crates or wagons are gone: everything happens on the maths card.
+
 ### Later / optional
 - Level editor, extra train types (passengers, freight).
 

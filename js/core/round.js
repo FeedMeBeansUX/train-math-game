@@ -32,6 +32,7 @@
       departuresFromStart: 0,
       emptySeats: null,
       unloadMistakes: 0,
+      corrections: 0,       // wrong answers that needed a follow-up sum (loading or unloading)
       ordered: !!opts.ordered,
       orderMistakes: 0,
     };
@@ -141,6 +142,37 @@
     return next;
   }
 
+  /** How many of a good the train should hold at the start: what the orders still need. */
+  function needAtStart(round, good) {
+    return round.orders.filter(o => o.good === good).reduce((n, o) => n + Math.max(0, o.amount - o.delivered), 0);
+  }
+
+  /** The order at this station that is not exactly right yet (too few or too many delivered), or null. */
+  function orderAt(round, stationId) {
+    return round.orders.find(o => o.stationId === stationId && o.delivered !== o.amount) || null;
+  }
+
+  /**
+   * Unloading with the answer buttons: put n items of the order's good from the train onto the
+   * platform (as many as there are), even if that is too many. Returns their positions in the load.
+   */
+  function unloadTo(round, order, n) {
+    const before = round.load.slice();
+    const removed = [];
+    for (let i = before.length - 1; i >= 0 && removed.length < n; i--) if (before[i] === order.good) removed.push(i);
+    for (let k = 0; k < removed.length; k++) unloadOne(round, order.good);
+    order.delivered += removed.length;
+    return removed;
+  }
+
+  /** Put n items back from the platform into the train. Returns how many went back. */
+  function takeBack(round, order, n) {
+    const k = Math.max(0, Math.min(n, order.delivered));
+    for (let i = 0; i < k; i++) loadOne(round, order.good);
+    order.delivered -= k;
+    return k;
+  }
+
   /** The open order at this station for one of the goods, or null. */
   function openOrderAt(round, stationId) {
     return round.orders.find(o => o.stationId === stationId && remaining(o) > 0) || null;
@@ -174,21 +206,22 @@
     if (fromStart) round.departuresFromStart++;
   }
 
+  /** Every station has exactly what it asked for. */
   function isComplete(round) {
-    return round.orders.every(o => remaining(o) === 0);
+    return round.orders.every(o => o.delivered === o.amount);
   }
 
   /**
    * 3 stars: one trip from the start, nothing left over and (passenger rounds) no empty seats on the
    * first trip; one star less for each extra trip, for leftovers, for empty seats and for wrong
-   * amounts when unloading by hand (one star for the first mistake, another after three).
+   * answers that needed fixing (one star for the first, another after three).
    */
   function stars(round) {
     const mistakes = Math.max(0, round.departuresFromStart - 1)
       + (round.load.length > 0 ? 1 : 0)
       + (round.emptySeats > 0 ? 1 : 0)
-      + (round.unloadMistakes > 0 ? 1 : 0)
-      + (round.unloadMistakes > 2 ? 1 : 0)
+      + (round.unloadMistakes + round.corrections > 0 ? 1 : 0)
+      + (round.unloadMistakes + round.corrections > 2 ? 1 : 0)
       + (round.orderMistakes > 0 ? 1 : 0);
     return Math.max(1, 3 - mistakes);
   }
@@ -204,6 +237,7 @@
     WAGON_CAPACITY,
     createRound, setWagons, waitingPassengers, board, remaining, goodsNeeded, count, isFull,
     loadOne, unloadOne, deliverAt, openOrderAt, unloadAt, nextOrder, checkTurn, recordDeparture, isComplete,
+    needAtStart, orderAt, unloadTo, takeBack,
     stars, leftovers,
   };
 })(globalThis.TG = globalThis.TG || {});
