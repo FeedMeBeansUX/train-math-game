@@ -45,6 +45,7 @@
     canvas: $('side'),
     signs: $('signs'),
     orders: $('orders'),
+    maths: $('maths'),
     messages: $('messages'),
     minimap: $('minimap'),
     status: $('drive-status'),

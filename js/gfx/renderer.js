@@ -32,14 +32,19 @@
     }
 
     /** Fit the map into (cssW x cssH) CSS pixels. Returns the CSS size of one tile. */
+    /**
+     * Fill (cssW x cssH) CSS pixels. Drawn at a whole number of device pixels per art pixel,
+     * then shown at the exact size that fits, so the map uses all the room it has.
+     */
     fit(cssW, cssH, dpr) {
       const bw = this.buffer.width, bh = this.buffer.height;
-      this.scale = Math.max(1, Math.floor(Math.min((cssW * dpr) / bw, (cssH * dpr) / bh)));
+      const fitScale = Math.max(0.5, Math.min(cssW / bw, cssH / bh));
+      this.scale = Math.max(1, Math.ceil(fitScale * dpr));
       this.canvas.width = bw * this.scale;
       this.canvas.height = bh * this.scale;
-      this.canvas.style.width = (bw * this.scale) / dpr + 'px';
-      this.canvas.style.height = (bh * this.scale) / dpr + 'px';
-      return (TILE * this.scale) / dpr;
+      this.canvas.style.width = bw * fitScale + 'px';
+      this.canvas.style.height = bh * fitScale + 'px';
+      return TILE * fitScale;
     }
 
     buildTerrain(state) {

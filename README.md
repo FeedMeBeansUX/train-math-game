@@ -34,7 +34,8 @@ Sound effects can be switched off with 🔊.
 | Take track back | right click (or `Delete` while hovering) |
 | Put the piece down | `Esc` |
 
-After solving a puzzle press **Ga rijden!**. The orders board says what each station needs. At the
+After solving a puzzle press **Ga rijden!**. The orders board says what each station needs, and the
+maths card underneath shows the sum with four answer buttons: clicking an answer loads that many goods. At the
 warehouse, click the crates on the platform (or **+**) to load goods; click goods in the train (or **−**)
 to put them back. Then pick a station: the train finds its own way over your track and the station takes
 what it ordered. Deliver everything for up to three stars. **Naar de kaart** goes back to the puzzle.

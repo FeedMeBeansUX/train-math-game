@@ -150,6 +150,7 @@
       this.pendingLoad = {};
       this.pendingPile = {};
       this.unloading = null;
+      this.answered = new Set(); // sums already answered this round
       this.puffTimer = 0;
       this.messages = [];
       this.dom.roundDone.hidden = true;
@@ -160,7 +161,8 @@
     // ------------------------------------------------------------ trips
 
     sceneBase() {
-      return { theme: this.def.theme, wagons: this.round.wagons, wagonType: this.round.wagonType, sceneryOffset: this.sceneryOffset };
+      const wagons = this.passengers() ? this.round.wagons : Math.max(1, this.wagonGoods().length);
+      return { theme: this.def.theme, wagons, wagonType: this.round.wagonType, sceneryOffset: this.sceneryOffset };
     }
 
     idleScene() {
@@ -312,7 +314,7 @@
         const good = before[idx];
         const key = this.current + ':' + good;
         this.pendingPile[key] = (this.pendingPile[key] || 0) + 1;
-        const from = this.renderer.slotPos(this.front, idx);
+        const from = this.itemPos(good, idx);
         const p = Math.min(goodsHere.indexOf(good), MAX_PILES - 1);
         const k = this.deliveredCount(this.current, good) - this.pendingPile[key];
         const to = this.renderer.pileItemPos(0, p, Math.min(good === 'passenger' ? 25 : 9, k), false, good);
@@ -375,40 +377,75 @@
       return RD.goodsNeeded(this.round);
     }
 
-    loadGood(good) {
-      if (this.passengers()) return;
+    /** Freight trains have one wagon per kind of good, in the order of the orders list. */
+    wagonGoods() {
+      return Array.from(new Set([...this.supplyGoods(), ...this.round.load]));
+    }
+
+    /**
+     * Wagon index (0 = right behind the locomotive) of a good. The first good gets the leftmost
+     * wagon, so reading the train from left to right follows the orders list.
+     */
+    wagonIndex(good) {
+      const list = this.wagonGoods();
+      return list.length - 1 - Math.max(0, list.indexOf(good));
+    }
+
+    /** Where an item of a good is in the train: its wagon's plate (freight) or its seat (passengers). */
+    itemPos(good, idx) {
+      if (this.passengers()) return this.renderer.slotPos(this.front, idx);
+      return this.renderer.wagonSlot(this.front, this.wagonIndex(good));
+    }
+
+    /** Load n items at once (answer buttons): they fly into the wagon one after another. */
+    loadMany(good, n) {
+      for (let i = 0; i < n; i++) if (!this.loadGood(good, i * 0.07, i > 0)) break;
+    }
+
+    unloadMany(good, n) {
+      for (let i = 0; i < n; i++) if (!this.unloadGood(good, i * 0.07, i > 0)) break;
+    }
+
+    loadGood(good, delay, quiet) {
+      if (this.passengers()) return false;
       if (!this.atStart()) {
         const startKind = L.stationById(this.state, this.startId).kind;
         this.messages = [i18n.both('loadOnlyAtStart', { s: l => i18n.stationPhrase(startKind, l) })];
         TG.sound.play('bad');
         this.refresh();
-        return;
+        return false;
       }
       const idx = RD.loadOne(this.round, good);
       if (idx < 0) {
         this.messages = [Object.assign(i18n.both('trainFull'), { kind: 'warn' })];
         TG.sound.play('bad');
         this.refresh();
-        return;
+        return false;
       }
       this.messages = [];
       this.pendingLoad[good] = (this.pendingLoad[good] || 0) + 1;
       const p = Math.min(this.supplyGoods().indexOf(good), MAX_PILES - 1);
       const from = this.renderer.pileItemPos(0, p, 1, true);
-      TG.sound.play('load');
-      this.fly(good, from, this.renderer.slotPos(this.front, idx), 0, () => { this.pendingLoad[good]--; });
+      if (!quiet) TG.sound.play('load');
+      this.fly(good, from, this.itemPos(good, idx), -(delay || 0), () => {
+        this.pendingLoad[good]--;
+        if (quiet) TG.sound.play('pop');
+      });
       this.refresh();
+      return true;
     }
 
-    unloadGood(good) {
-      if (!this.atStart() || this.passengers()) return;
+    unloadGood(good, delay, quiet) {
+      if (!this.atStart() || this.passengers()) return false;
+      const from = this.itemPos(good, this.round.load.lastIndexOf(good));
       const idx = RD.unloadOne(this.round, good);
-      if (idx < 0) return;
+      if (idx < 0) return false;
       this.messages = [];
       const p = Math.max(0, Math.min(this.supplyGoods().indexOf(good), MAX_PILES - 1));
-      TG.sound.play('unload');
-      this.fly(good, this.renderer.slotPos(this.front, idx), this.renderer.pileItemPos(0, p, 1, true), 0, null);
+      if (!quiet) TG.sound.play('unload');
+      this.fly(good, from, this.renderer.pileItemPos(0, p, 1, true), -(delay || 0), quiet ? () => TG.sound.play('pop') : null);
       this.refresh();
+      return true;
     }
 
     fly(good, from, to, delay, onLand) {
@@ -438,6 +475,14 @@
 
     /** The load as drawn: items still flying towards the train are not shown yet. */
     cargoView() {
+      if (!this.passengers()) {
+        // Freight: one entry per wagon with how many are on board (not counting goods still flying in)
+        const out = [];
+        for (const good of this.wagonGoods()) {
+          out[this.wagonIndex(good)] = { good, n: Math.max(0, RD.count(this.round, good) - (this.pendingLoad[good] || 0)) };
+        }
+        return out;
+      }
       const seen = {};
       return this.round.load.map(good => {
         seen[good] = (seen[good] || 0) + 1;
@@ -573,8 +618,10 @@
       const goods = this.supplyGoods().slice(0, MAX_PILES);
       const pile = this.renderer.pileAt(0, goods.length, p.x, p.y, this.camera);
       if (pile >= 0) return { load: goods[pile] };
-      const slot = this.renderer.slotAt(this.front, this.round.load.length, p.x, p.y, this.camera);
-      if (slot >= 0) return { unload: this.round.load[slot] };
+      const wagons = this.wagonGoods();
+      const w = this.renderer.wagonAt(this.front, wagons.length, p.x, p.y, this.camera);
+      const good = w >= 0 ? wagons[wagons.length - 1 - w] : null;
+      if (good && RD.count(this.round, good) > 0) return { unload: good };
       return null;
     }
 
@@ -601,7 +648,7 @@
       }
       this.dom.board.style.setProperty('--px', s + 'px');
       const mm = this.dom.minimap;
-      const k = Math.max(1, Math.round(s * 1.5));
+      const k = Math.max(1, Math.round(s));
       mm.style.width = mm.width * k + 'px';
       mm.style.height = mm.height * k + 'px';
       this.positionSigns();
@@ -637,6 +684,74 @@
       this.refreshMessages();
       this.refreshLoad();
       this.refreshDestinations();
+      this.refreshMaths();
+    }
+
+    // ------------------------------------------------------------ the sum with answer buttons
+
+    /** The sum to show now: unloading by hand at a station, or the next unanswered loading sum. */
+    currentProblem() {
+      if (this.trip || this.busy) return null;
+      if (this.unloading) {
+        const o = RD.openOrderAt(this.round, this.unloading.stationId);
+        return o ? TG.maths.unloadProblem(this.plan, o, this.round.orders.indexOf(o) * 31 + 7) : null;
+      }
+      if (this.current !== this.startId) return null;
+      const i = this.plan.problems.findIndex((p, k) => !this.answered.has(k));
+      return i < 0 ? null : Object.assign({ index: i }, this.plan.problems[i]);
+    }
+
+    /** An answer button: load / take out / unload that many, or set that many carriages. */
+    answer(pr, n) {
+      if (pr.index != null) this.answered.add(pr.index);
+      if (this.unloading) {
+        this.setUnloadCount(n);
+        this.confirmUnload();
+        return;
+      }
+      if (pr.action === 'wagons') this.setWagons(n);
+      else if (pr.action === 'unload') this.unloadMany(pr.good, n);
+      else this.loadMany(pr.good, n);
+      this.refresh();
+    }
+
+    refreshMaths() {
+      const box = this.dom.maths;
+      const pr = this.currentProblem();
+      box.textContent = '';
+      box.hidden = !pr;
+      if (!pr) return;
+      const q = pr.action === 'wagons' ? i18n.both('howManyWagons')
+        : this.unloading ? i18n.both('askUnload', { goods: l => i18n.goodsWord(pr.good, 2, l) })
+          : i18n.both(pr.action === 'unload' ? 'qTakeOut' : 'qLoad', { goods: l => i18n.goodsWord(pr.good, 2, l) });
+      box.append(sentenceEl(q, 'question'));
+      const sum = el('div', 'sum');
+      for (const t of pr.tokens) {
+        if (t === '?') sum.append(el('span', 'blank', '…'));
+        else if (typeof t === 'object') sum.append(this.iconsEl(pr.good, t.icons));
+        else if (typeof t === 'number') sum.append(el('span', 'num', String(t)));
+        else sum.append(el('span', 'op', t));
+      }
+      box.append(sum);
+      const row = el('div', 'choices');
+      for (const n of pr.choices) {
+        const b = el('button', 'btn choice-btn', String(n));
+        b.type = 'button';
+        b.addEventListener('click', () => this.answer(pr, n));
+        row.append(b);
+      }
+      box.append(row);
+    }
+
+    /** Goods to count, laid out in tens (rows of five), like a ten frame. */
+    iconsEl(good, n) {
+      const wrap = el('span', 'icon-count');
+      for (let t = 0; t < n; t += 10) {
+        const ten = el('span', 'ten');
+        for (let i = t; i < Math.min(n, t + 10); i++) ten.append(goodIconEl(good));
+        wrap.append(ten);
+      }
+      return wrap;
     }
 
     refreshStatus() {

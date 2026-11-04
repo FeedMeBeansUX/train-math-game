@@ -17,11 +17,11 @@
 
   /** Highest number used per level (index = level - 1), before the parent's maximum is applied. */
   const RANGES = {
-    count:    [3, 5, 6, 8, 10, 10, 10, 10],
-    add:      [5, 7, 10, 12, 15, 20, 25, 30],
-    subtract: [5, 7, 10, 12, 15, 20, 25, 30],
-    multiply: [6, 10, 15, 20, 30, 40, 50, 50],
-    divide:   [6, 8, 10, 12, 15, 20, 24, 30],
+    count:    [15, 15, 18, 20, 20, 20, 20, 20],
+    add:      [15, 15, 18, 20, 20, 25, 30, 30],
+    subtract: [15, 15, 18, 20, 20, 25, 30, 30],
+    multiply: [10, 15, 20, 25, 30, 40, 50, 50],
+    divide:   [12, 12, 15, 16, 20, 24, 30, 30],
   };
 
   function freshSkill() {

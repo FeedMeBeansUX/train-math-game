@@ -34,14 +34,19 @@
       this.ballast = this.makeBallastStrip();
     }
 
+    /**
+     * Fill (cssW x cssH) CSS pixels. The picture is drawn at a whole number of device pixels
+     * per art pixel and then shown at the exact size that fits, so no space is wasted.
+     */
     fit(cssW, cssH, dpr) {
-      this.scale = Math.max(1, Math.floor(Math.min((cssW * dpr) / W, (cssH * dpr) / H)));
+      const fitScale = Math.max(0.5, Math.min(cssW / W, cssH / H));
+      this.scale = Math.max(1, Math.ceil(fitScale * dpr));
       this.canvas.width = W * this.scale;
       this.canvas.height = H * this.scale;
-      this.canvas.style.width = (W * this.scale) / dpr + 'px';
-      this.canvas.style.height = (H * this.scale) / dpr + 'px';
-      this.cssScale = this.scale / dpr;
-      return this.cssScale;
+      this.canvas.style.width = W * fitScale + 'px';
+      this.canvas.style.height = H * fitScale + 'px';
+      this.cssScale = fitScale;
+      return fitScale;
     }
 
     /**
@@ -117,6 +122,22 @@
       for (let p = 0; p < count; p++) {
         const x = this.pileX(s, p) - camera;
         if (sx >= x - 2 && sx <= x + 30 && sy >= PLATFORM_Y - 34 && sy <= PLATFORM_Y + 2) return p;
+      }
+      return -1;
+    }
+
+    /** Freight: where the goods plate of wagon w is (goods fly to and from here). */
+    wagonSlot(front, w) {
+      const t = this.wagonType();
+      return { x: this.wagonLeft(front, w) + 10, y: RAIL_Y - t.h + 11 };
+    }
+
+    /** Index of the wagon under a screen point, -1 if none. */
+    wagonAt(front, count, sx, sy, camera) {
+      const t = this.wagonType();
+      for (let w = 0; w < count; w++) {
+        const x = this.wagonLeft(front, w) - camera;
+        if (sx >= x && sx < x + t.w && sy >= RAIL_Y - t.h && sy < RAIL_Y) return w;
       }
       return -1;
     }
@@ -442,12 +463,31 @@
     /** Goods in the wagons; cargo is a list of good ids (null = slot not shown yet). */
     drawCargo(ctx, front, cargo, cam) {
       const t = this.wagonType();
-      const per = t.seats ? t.seats.length : TG.round.WAGON_CAPACITY;
+      if (!t.seats) return this.drawWagonPlates(ctx, front, cargo, cam);
+      const per = t.seats.length;
       cargo.forEach((good, i) => {
         if (!good) return;
         const p = this.slotPos(front, i);
         const dy = this.wagonSway(Math.floor(i / per));
         ctx.drawImage(good === 'passenger' ? SS.head(i) : SS.goodIcon(good), Math.round(p.x - cam), p.y + dy);
+      });
+    }
+
+    /** Freight: a plate on each wagon with the good's icon and how many are on board. */
+    drawWagonPlates(ctx, front, loads, cam) {
+      loads.forEach((load, w) => {
+        if (!load) return;
+        const left = Math.round(this.wagonLeft(front, w) - cam);
+        const top = RAIL_Y - SS.WAGON_H + this.wagonSway(w);
+        const digits = String(load.n);
+        const width = 14 + digits.length * 6;
+        const x0 = left + Math.round((SS.WAGON_W - width) / 2);
+        ctx.fillStyle = '#3b2f25';
+        ctx.fillRect(x0, top + 9, width, 13);
+        ctx.fillStyle = '#f2efe6';
+        ctx.fillRect(x0 + 1, top + 10, width - 2, 11);
+        ctx.drawImage(SS.goodIcon(load.good), x0 + 2, top + 11);
+        for (let i = 0; i < digits.length; i++) ctx.drawImage(SS.digit(digits[i]), x0 + 12 + i * 6, top + 12);
       });
     }
 

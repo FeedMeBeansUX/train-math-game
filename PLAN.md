@@ -155,6 +155,18 @@ Each phase ends with something playable in the browser.
   station that is not next says "Eerst naar de Molen!" and keeps its goods in the train (a star less).
 - Default colour style: warm.
 
+### Iteration 1 — feedback after playing ✅
+- The puzzle map and the side view scale freely to fill the screen (drawn at whole device pixels, shown at
+  the exact size that fits), so the puzzle screen no longer has wide empty borders.
+- The orders sit in the top centre of the side view, with a **maths card** underneath: the sum for this
+  round ("4 + 3 = …", "3 + … = 8", "9 − … = 5", "… × 5 = 20", goods to count, and "12 : 3 = …" when sharing at
+  a station) and four answer buttons. Clicking an answer loads (or takes out, or unloads) that many goods,
+  or sets that many carriages. Wrong answers are not blocked: the delivery shows what went wrong.
+- One wagon per kind of good, left to right in the order of the orders list; each wagon shows a plate with
+  the good's icon and how many are on board (no piles on top any more).
+- Harder sums: level 1 already goes up to 15 for counting, addition and subtraction; every part is at least
+  2 and amounts start at about half the level's range, so no more "bring 1 of this".
+
 ### Later / optional
 - Level editor, extra train types (passengers, freight).
 

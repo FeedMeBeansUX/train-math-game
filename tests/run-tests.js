@@ -432,10 +432,11 @@ test('progress: record, limits follow the level and the parent maximum', () => {
   const P = TG.progress;
   P.use(null);
   const st = { maxNumber: 20, skills: {}, adaptive: true };
-  eq(P.limit('add', st), 5);
-  P.record('add', 3); P.record('add', 3);
-  eq(P.level('add'), 2);
-  eq(P.limit('add', st), 7);
+  eq(P.limit('add', st), 15, 'level 1 addition already goes up to 15');
+  eq(P.limit('multiply', st), 10);
+  P.record('multiply', 3); P.record('multiply', 3);
+  eq(P.level('multiply'), 2);
+  eq(P.limit('multiply', st), 15);
   eq(P.limit('add', Object.assign({}, st, { adaptive: false })), 20, 'not adaptive: the parent maximum');
   eq(P.get().totalStars, 6);
   eq(P.normalize({ skills: { add: { level: 99 } } }).skills.add.level, P.MAX_LEVEL);
@@ -451,7 +452,7 @@ test('adaptive plans stay within the level range', () => {
       const lim = TG.progress.limit(p.skill, st);
       for (const o of p.orders) assert(o.amount <= lim, p.kind + ' amount ' + o.amount + ' > ' + lim);
       assert(p.preload.length <= lim, 'preload');
-      if (p.kind === 'multiply') eq(p.perWagon, 2, 'level 1 multiplication uses pairs');
+      if (p.kind === 'multiply') assert([2, 5].includes(p.perWagon), 'level 1 multiplication uses carriages of 2 or 5');
     }
   }
 });
@@ -487,6 +488,68 @@ test('manual unloading: everything in the train is accepted when it is less than
   const res = RD().unloadAt(r, 'farm', 2);
   assert(res.ok);
   eq(res.delivery.missing, 3);
+});
+
+test('no tiny numbers: every part at least 2, and level 1 already reaches 10 or more', () => {
+  TG.progress.use(null);
+  const st = { maxNumber: 20, adaptive: true, skills: { count: true, add: true, subtract: true, multiply: false, divide: false } };
+  let big = 0;
+  for (const def of TG.LEVELS) {
+    const s = L.createLevel(def);
+    for (let seed = 1; seed < 50; seed++) {
+      const p = M().planRound(s, st, seed);
+      for (const o of p.orders) assert(o.amount >= 2, p.kind + ' amount ' + o.amount);
+      const pre = p.preload.length;
+      if (p.kind === 'missing') assert(pre >= 2 && p.orders[0].amount - pre >= 2, 'top up: ' + pre + ' -> ' + p.orders[0].amount);
+      if (p.kind === 'takeaway') assert(pre - p.orders[0].amount >= 2, 'take away at least 2');
+      if (p.kind === 'count') for (const o of p.orders) assert(o.amount >= 3, 'count at least 3');
+      if (Math.max(pre, ...p.orders.map(o => o.amount), p.orders.reduce((n, o) => n + o.amount, 0)) >= 10) big++;
+    }
+  }
+  assert(big > 150, 'most level-1 rounds use numbers of 10 or more: ' + big);
+});
+test('freight trains get one wagon per kind of good', () => {
+  const st = { maxNumber: 20, adaptive: false, skills: { count: true, add: true, subtract: true, multiply: false, divide: true } };
+  const s = L.createLevel(TG.LEVELS[5]);
+  for (let seed = 1; seed < 40; seed++) {
+    const p = M().planRound(s, st, seed);
+    eq(p.wagons, new Set(p.orders.map(o => o.good)).size, p.kind);
+  }
+});
+test('sums: the answer makes the sum true, four different choices including the answer', () => {
+  const st = { maxNumber: 20, adaptive: false, skills: { count: true, add: true, subtract: true, multiply: true, divide: true } };
+  const evalSum = (tokens, x) => {
+    const v = tokens.map(t => (t === '?' ? x : t));
+    const eqAt = v.indexOf('=');
+    const side = part => {
+      let acc = null, op = '+';
+      for (const t of part) {
+        if (typeof t === 'string') { op = t; continue; }
+        const n = typeof t === 'object' ? t.icons : t;
+        acc = acc === null ? n : op === '+' ? acc + n : op === '−' ? acc - n : op === '×' ? acc * n : acc / n;
+      }
+      return acc;
+    };
+    return side(v.slice(0, eqAt)) === side(v.slice(eqAt + 1));
+  };
+  for (const def of TG.LEVELS) {
+    const s = L.createLevel(def);
+    for (let seed = 1; seed < 40; seed++) {
+      const p = M().planRound(s, st, seed);
+      assert(p.problems.length >= 1, 'a sum for every round');
+      for (const pr of p.problems) {
+        assert(evalSum(pr.tokens, pr.answer), p.kind + ': ' + JSON.stringify(pr.tokens) + ' with ' + pr.answer);
+        eq(pr.choices.length, 4);
+        eq(new Set(pr.choices).size, 4, 'different choices');
+        assert(pr.choices.includes(pr.answer), 'answer among the choices');
+        assert(pr.choices.every(c => c >= 1), 'no zero or negative choices');
+      }
+      if (p.kind === 'divide') {
+        const up = M().unloadProblem(p, p.orders[0], seed);
+        assert(evalSum(up.tokens, up.answer) && up.answer === p.orders[0].amount, 'sharing sum');
+      }
+    }
+  }
 });
 
 console.log('generator');

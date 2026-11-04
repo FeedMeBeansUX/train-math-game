@@ -84,6 +84,9 @@
     unlockText:      { nl: 'Je kunt nu spelen in: {t}', en: 'You can now play: {t}' },
     playNow:         { nl: 'Speel nu', en: 'Play now' },
     later:           { nl: 'Later', en: 'Later' },
+    // The sum above the train
+    qLoad:           { nl: 'Hoeveel {goods} laad je in?', en: 'How many {goods} do you load?' },
+    qTakeOut:        { nl: 'Hoeveel {goods} haal je eruit?', en: 'How many {goods} do you take out?' },
     // Switches and ordered deliveries
     switchesTitle:   { nl: 'Wissels', en: 'Switches' },
     switchHint:      { nl: 'Klik op een wissel om hem om te zetten.', en: 'Click a switch to change it.' },

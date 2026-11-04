@@ -387,9 +387,9 @@ select { padding: 4px 8px; }
 .sentence .second { font-size: 14px; font-style: italic; }
 
 .messages {
-  right: calc(var(--px) * 6);
-  top: calc(var(--px) * 100);
-  max-width: 46%;
+  left: calc(var(--px) * 6);
+  top: calc(var(--px) * 6);
+  max-width: 23%;
   display: grid;
   gap: 6px;
   padding: 10px 16px;
@@ -542,3 +542,63 @@ html[data-style="muted"] canvas { filter: saturate(0.72) contrast(0.95) brightne
 }
 .orders li.current .step { background: var(--accent); box-shadow: 0 0 0 2px #fff3c4; }
 .orders li.current .sentence .main { color: #fff3c4; }
+
+/* ------------------------------------------------------------ orders + sum in the centre of the side view */
+
+.hud-center {
+  top: calc(var(--px) * 6);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: max-content;
+  max-width: 50%;
+}
+.hud-center .orders { position: static; max-width: none; }
+
+.maths {
+  padding: 10px 14px 12px;
+  background: rgba(22, 40, 70, 0.92);
+  border: 3px solid #1f3d6b;
+  box-shadow: inset 0 0 0 2px #5a7fb8, 0 3px 0 rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: pop 0.25s ease-out;
+}
+.maths[hidden] { display: none; }
+.maths .question { align-items: center; margin-bottom: 6px; }
+.maths .question .main { font-size: 18px; }
+.maths .sum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 10px;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+}
+.maths .op { color: var(--accent); }
+.maths .blank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 56px;
+  height: 48px;
+  border: 3px dashed var(--accent);
+  color: var(--accent);
+}
+.maths .icon-count { display: flex; gap: 8px; }
+.maths .icon-count .ten { display: grid; grid-template-columns: repeat(5, 20px); gap: 2px; }
+.maths .icon-count canvas.good-icon { width: 20px; height: 20px; }
+.maths .choices { display: flex; gap: 10px; justify-content: center; }
+.choice-btn {
+  min-width: 68px;
+  padding: 6px 12px;
+  font-size: 30px;
+  font-weight: 700;
+  background: #2f5a8a;
+}
+.choice-btn:hover { background: #3f72aa; }
