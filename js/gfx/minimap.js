@@ -11,7 +11,7 @@
   const PX = 6; // art pixels per tile
 
   const COLORS = {
-    grass: '#4f7f36', grass2: '#58893c', water: '#3b6ea5', tree: '#2f5225', rock: '#7a766f',
+    grass: '#4f7f36', grass2: '#58893c', water: '#3b6ea5',
     track: '#2a2522', route: '#ffd84a', station: '#f2efe6', start: '#ffd84a', building: '#9c3d30', train: '#e0473a',
   };
 
@@ -40,9 +40,7 @@
           const ch = L.terrainAt(s, x, y);
           ctx.fillStyle = GROUND[ch] || ((x + y) % 2 ? COLORS.grass : COLORS.grass2);
           ctx.fillRect(x * PX, y * PX, PX, PX);
-          if (ch === 'H') { ctx.fillStyle = '#d9b85a'; ctx.fillRect(x * PX + 1, y * PX + 1, PX - 2, PX - 2); }
-          if (ch === 'T') { ctx.fillStyle = COLORS.tree; ctx.fillRect(x * PX + 1, y * PX + 1, PX - 2, PX - 2); }
-          if (ch === 'R') { ctx.fillStyle = COLORS.rock; ctx.fillRect(x * PX + 2, y * PX + 2, PX - 3, PX - 3); }
+          // Trees, rocks and hay bales are left out to keep the overview calm
         }
       }
       // Track: sample each link's centre line
@@ -67,7 +65,7 @@
 
     /**
      * Where the goods have to go: a yellow frame around each target station (blinking for the
-     * next one) and the icon of the ordered good above it.
+     * next one) and the plain icon of the ordered good above it.
      */
     drawTargets(ctx, targets, time) {
       const blink = Math.floor(time * 2.5) % 2 === 0;
@@ -86,13 +84,6 @@
         const icon = TG.sideSprites.goodIcon(t.good);
         const ix = Math.max(0, Math.min(this.canvas.width - 10, x + PX / 2 - 5));
         const iy = y >= 11 ? y - 11 : y + PX + 1;
-        ctx.fillStyle = '#1d1b18';
-        ctx.fillRect(ix, iy, 10, 10);
-        ctx.fillStyle = t.next ? COLORS.route : '#f2efe6';
-        ctx.fillRect(ix, iy, 10, 1);
-        ctx.fillRect(ix, iy + 9, 10, 1);
-        ctx.fillRect(ix, iy, 1, 10);
-        ctx.fillRect(ix + 9, iy, 1, 10);
         ctx.drawImage(icon, ix + 1, iy + 1);
       }
     }
