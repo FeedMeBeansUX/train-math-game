@@ -428,6 +428,17 @@
       return RD.goodsNeeded(this.round);
     }
 
+    /**
+     * Stations that still need goods, for the mini-map. `next` marks where to go now: the next order
+     * in ordered rounds, otherwise every open station.
+     */
+    targets() {
+      const next = this.round.ordered ? RD.nextOrder(this.round) : null;
+      return this.round.orders
+        .filter(o => o.delivered !== o.amount)
+        .map(o => ({ stationId: o.stationId, good: o.good, next: !this.round.ordered || o === next }));
+    }
+
     /** The train may leave when the load is right (at the start) or this station is done. */
     canDepart() {
       if (this.trip || this.busy) return false;
@@ -655,11 +666,11 @@
       });
       const tr = this.trip;
       const dist = tr ? (tr.lastPos / tr.D) * tr.route.length : 0;
-      this.minimap.draw(tr ? tr.route : null, dist, this.current, time, this.switchMode ? {
+      this.minimap.draw(tr ? tr.route : null, dist, this.current, time, Object.assign({ targets: this.targets() }, this.switchMode ? {
         switches: this.switchTiles,
         preview: this.preview && this.preview.route,
         blocked: this.preview && this.preview.blocked,
-      } : null);
+      } : {}));
       this.positionSigns();
     }
 

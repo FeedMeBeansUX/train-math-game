@@ -61,13 +61,46 @@
       }
     }
 
+    /**
+     * Where the goods have to go: a yellow frame around each target station (blinking for the
+     * next one) and the icon of the ordered good above it.
+     */
+    drawTargets(ctx, targets, time) {
+      const blink = Math.floor(time * 2.5) % 2 === 0;
+      for (const t of targets) {
+        const st = L.stationById(this.state, t.stationId);
+        if (!st) continue;
+        const x = st.x * PX, y = st.y * PX;
+        if (!t.next || blink) {
+          ctx.fillStyle = t.next ? COLORS.route : 'rgba(255,216,74,0.6)';
+          ctx.fillRect(x - 1, y - 1, PX + 2, 1);
+          ctx.fillRect(x - 1, y + PX, PX + 2, 1);
+          ctx.fillRect(x - 1, y - 1, 1, PX + 2);
+          ctx.fillRect(x + PX, y - 1, 1, PX + 2);
+        }
+        // Icon above the station (below it on the top row), kept inside the map
+        const icon = TG.sideSprites.goodIcon(t.good);
+        const ix = Math.max(0, Math.min(this.canvas.width - 10, x + PX / 2 - 5));
+        const iy = y >= 11 ? y - 11 : y + PX + 1;
+        ctx.fillStyle = '#1d1b18';
+        ctx.fillRect(ix, iy, 10, 10);
+        ctx.fillStyle = t.next ? COLORS.route : '#f2efe6';
+        ctx.fillRect(ix, iy, 10, 1);
+        ctx.fillRect(ix, iy + 9, 10, 1);
+        ctx.fillRect(ix, iy, 1, 10);
+        ctx.fillRect(ix + 9, iy, 1, 10);
+        ctx.drawImage(icon, ix + 1, iy + 1);
+      }
+    }
+
     dot(ctx, p, size) {
       ctx.fillRect(Math.floor(p.x * PX - size / 2 + 0.5), Math.floor(p.y * PX - size / 2 + 0.5), size, size);
     }
 
     /**
      * route may be null; dist = how far the train is along it.
-     * extra (switch mode): { switches: [{x, y, color}], preview: route | null, blocked: {x, y} | null }
+     * extra: { targets: [{ stationId, good, next }],                    stations that still need goods
+     *          switches: [{x, y, color}], preview: route | null, blocked: {x, y} | null }  (switch mode)
      */
     draw(route, dist, currentId, time, extra) {
       const ctx = this.ctx;
@@ -100,6 +133,7 @@
         ctx.fillStyle = st.isStart ? COLORS.start : COLORS.station;
         ctx.fillRect(st.x * PX + 1, st.y * PX + 1, PX - 2, PX - 2);
       }
+      if (extra && extra.targets) this.drawTargets(ctx, extra.targets, time);
       // The train: a blinking red block
       let p;
       if (route) p = R.pointAt(route, dist);
