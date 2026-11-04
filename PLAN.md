@@ -180,6 +180,15 @@ Each phase ends with something playable in the browser.
 - Every fix costs a little: one star for the first, another after three; the summary says how many.
 - The "In de trein" panel and clicking crates or wagons are gone: everything happens on the maths card.
 
+### Iteration 3 — layout and map details ✅
+- Mini-map in the sidebar with the target stations marked (good's icon, blinking frame for the next one);
+  messages top right; Kaart/Puzzel buttons at the bottom of the sidebar.
+- Farm maps: fenced meadows with cows and sheep, crop fields (wheat, cabbage, corn) and hay bales.
+  They block track like trees do.
+- Racing maps: a piece of race track (asphalt, red-white kerbs) runs across the map like a river.
+  Town maps: a road (pavement, dashed centre line). Both need a **bridge**; in the side view a car drives
+  under the bridge.
+
 ### Later / optional
 - Level editor, extra train types (passengers, freight).
 

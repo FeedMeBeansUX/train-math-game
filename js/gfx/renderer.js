@@ -56,6 +56,11 @@
           const ch = L.terrainAt(state, x, y);
           const v = Math.floor(hash2(x, y, 7) * 12);
           if (ch === 'T' || ch === 'R') ctx.drawImage(S.obstacle(theme, ch, v), x * TILE, y * TILE);
+          if (ch === 'H') ctx.drawImage(S.haybaleTop(v), x * TILE, y * TILE);
+          if (ch === 'A' && hash2(x, y, 9) < 0.7) {
+            const a = S.animal(v);
+            ctx.drawImage(a, x * TILE + 7 + (v % 3) * 3, y * TILE + 8 + (v % 2) * 6);
+          }
         }
       }
       for (const st of state.stations) {

@@ -13,7 +13,7 @@
     pieces:          { nl: 'Rails', en: 'Track' },
     reset:           { nl: 'Opnieuw', en: 'Start over' },
     helpPlace:       { nl: 'Klik op het gras: rails leggen', en: 'Click the grass: lay track' },
-    helpBridge:      { nl: 'Een brug leg je op het water', en: 'Bridges go on water' },
+    helpBridge:      { nl: 'Een brug leg je over water, een weg of de racebaan', en: 'Bridges go over water, roads or the race track' },
     helpRotate:      { nl: 'R of scrollen: draaien', en: 'R or scroll: rotate' },
     helpRotatePlaced:{ nl: 'Klik op rails: draaien', en: 'Click track: rotate' },
     helpRemove:      { nl: 'Rechtsklik: weghalen', en: 'Right click: remove' },

@@ -15,6 +15,9 @@
     track: '#2a2522', route: '#ffd84a', station: '#f2efe6', start: '#ffd84a', building: '#9c3d30', train: '#e0473a',
   };
 
+  /** Mini-map colours for special ground. */
+  const GROUND = { '~': '#3b6ea5', '=': '#55585e', '#': '#3e4146', 'C': '#b8963e', 'A': '#7fae5c' };
+
   class Minimap {
     constructor(canvas) {
       this.canvas = canvas;
@@ -35,8 +38,9 @@
       for (let y = 0; y < s.h; y++) {
         for (let x = 0; x < s.w; x++) {
           const ch = L.terrainAt(s, x, y);
-          ctx.fillStyle = ch === '~' ? COLORS.water : (x + y) % 2 ? COLORS.grass : COLORS.grass2;
+          ctx.fillStyle = GROUND[ch] || ((x + y) % 2 ? COLORS.grass : COLORS.grass2);
           ctx.fillRect(x * PX, y * PX, PX, PX);
+          if (ch === 'H') { ctx.fillStyle = '#d9b85a'; ctx.fillRect(x * PX + 1, y * PX + 1, PX - 2, PX - 2); }
           if (ch === 'T') { ctx.fillStyle = COLORS.tree; ctx.fillRect(x * PX + 1, y * PX + 1, PX - 2, PX - 2); }
           if (ch === 'R') { ctx.fillStyle = COLORS.rock; ctx.fillRect(x * PX + 2, y * PX + 2, PX - 3, PX - 3); }
         }

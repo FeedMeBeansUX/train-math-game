@@ -21,7 +21,7 @@
     curve:    { links: [[N, E]], rotations: 4, placeable: true, on: 'land' },
     // T-junction: the train may take any pair of its three ends (auto routing).
     junction: { links: [[W, E], [W, S], [E, S]], rotations: 4, placeable: true, on: 'land' },
-    // Bridge: a straight piece that can only be placed on water.
+    // Bridge: a straight piece that can only cross water, a road or a race track ('water' = a crossing).
     bridge:   { links: [[N, S]], rotations: 2, placeable: true, on: 'water' },
     // Station-only piece: track ending in a buffer stop, open towards N.
     buffer:   { links: [[N]], rotations: 4, placeable: false, on: 'land' },

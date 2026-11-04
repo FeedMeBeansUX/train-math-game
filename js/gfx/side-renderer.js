@@ -188,7 +188,7 @@
         this.drawPiles(ctx, i, (view.piles || [])[i] || [], cam);
       });
       this.drawTrack(ctx, cam);
-      for (const b of sc.bridges) this.drawBridge(ctx, b, cam);
+      for (const b of sc.bridges) this.drawBridge(ctx, b, cam, view.time);
       this.drawSmoke(ctx, view.smoke, cam);
       this.drawTrain(ctx, view.front - cam, view.wheelDist, sc.wagons, sc.wagonType || 'freight');
       this.drawCargo(ctx, view.front, view.cargo || [], cam);
@@ -370,7 +370,8 @@
       ctx.fillRect(0, RAIL_Y + 1, W, 1);
     }
 
-    drawBridge(ctx, b, cam) {
+    /** A bridge over water, a road or a race track (b.kind: '~', '=' or '#'); cars drive underneath. */
+    drawBridge(ctx, b, cam, time) {
       const x0 = Math.round(b.x0 - cam), x1 = Math.round(b.x1 - cam);
       if (x1 < -40 || x0 > W + 40) return;
       // River valley below the track
@@ -383,20 +384,25 @@
         ctx.fillRect(x, RAIL_Y + 3, 1, top - RAIL_Y - 3);
         ctx.fillStyle = '#5a4a34';
         ctx.fillRect(x, top - 2, 1, 2);
-        if (x >= x0 - 6 && x <= x1 + 6) {
-          ctx.fillStyle = '#3b6ea5';
-          ctx.fillRect(x, 262, 1, H - 262);
-          ctx.fillStyle = '#86b2da';
-          if (hash2(Math.round((x + cam) / 3), 0, 111) < 0.3) ctx.fillRect(x, 266 + Math.round(hash2(x + Math.round(cam), 1, 112) * 16), 2, 1);
-          ctx.fillStyle = '#b4d0e8';
-          ctx.fillRect(x, 262, 1, 1);
-        }
+        if (x >= x0 - 6 && x <= x1 + 6) this.drawUnderBridge(ctx, x, b.kind, cam);
       }
       // Valley background between banks (far bank in shadow)
       ctx.fillStyle = '#4a6b3a';
       ctx.fillRect(x0 - 6, RAIL_Y + 3, x1 - x0 + 12, 262 - RAIL_Y - 3);
       ctx.fillStyle = '#3f5e31';
       ctx.fillRect(x0 - 6, 254, x1 - x0 + 12, 8);
+      // A car passing underneath on a road or race track
+      if (b.kind === '=' || b.kind === '#') {
+        const car = SS.car(b.kind === '#' ? 'race' : 'town');
+        const span = x1 - x0 + 12 + car.width;
+        const cx = x0 - 6 - car.width + ((time * (b.kind === '#' ? 90 : 45)) % span);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0 - 6, 250, x1 - x0 + 12, H - 250);
+        ctx.clip();
+        ctx.drawImage(car, Math.round(cx), 279 - car.height);
+        ctx.restore();
+      }
       // Stone piers
       const piers = [x0];
       for (let px = x0 + 90; px < x1 - 30; px += 90) piers.push(px);
@@ -489,6 +495,32 @@
         ctx.drawImage(SS.goodIcon(load.good), x0 + 2, top + 11);
         for (let i = 0; i < digits.length; i++) ctx.drawImage(SS.digit(digits[i]), x0 + 12 + i * 6, top + 12);
       });
+    }
+
+    /** One pixel column of what lies under a bridge. */
+    drawUnderBridge(ctx, x, kind, cam) {
+      const wx = Math.round(x + cam);
+      if (kind === '=') {
+        ctx.fillStyle = '#4a4d52';
+        ctx.fillRect(x, 262, 1, H - 262);
+        ctx.fillStyle = '#aaa59a';
+        ctx.fillRect(x, 262, 1, 3);
+        if (wx % 14 < 7) { ctx.fillStyle = '#e8e4d8'; ctx.fillRect(x, 279, 1, 1); }
+      } else if (kind === '#') {
+        ctx.fillStyle = '#3e4146';
+        ctx.fillRect(x, 262, 1, H - 262);
+        ctx.fillStyle = Math.floor(wx / 4) % 2 ? '#d23a2c' : '#f2efe6';
+        ctx.fillRect(x, 262, 1, 3);
+        ctx.fillStyle = '#e8e4d8';
+        ctx.fillRect(x, 266, 1, 1);
+      } else {
+        ctx.fillStyle = '#3b6ea5';
+        ctx.fillRect(x, 262, 1, H - 262);
+        ctx.fillStyle = '#86b2da';
+        if (hash2(Math.round((x + cam) / 3), 0, 111) < 0.3) ctx.fillRect(x, 266 + Math.round(hash2(x + Math.round(cam), 1, 112) * 16), 2, 1);
+        ctx.fillStyle = '#b4d0e8';
+        ctx.fillRect(x, 262, 1, 1);
+      }
     }
 
     drawSmoke(ctx, smoke, cam) {

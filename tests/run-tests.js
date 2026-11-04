@@ -794,6 +794,40 @@ test('settings: switches and ordered are off by default', () => {
   eq(TG.settings.normalize({ switches: true }).switches, true);
 });
 
+console.log('map features');
+test('bridges cross roads and race tracks too; crops, meadows and hay block track', () => {
+  const s = L.createLevel(tinyLevel({ map: ['.....', '.=#~.', '.CAH.'], pieces: { straight: 3, bridge: 3 } }));
+  for (const x of [1, 2, 3]) {
+    assert(L.canBuild(s, x, 1, 'bridge'), 'bridge at ' + x);
+    assert(!L.canBuild(s, x, 1, 'straight'), 'no straight at ' + x);
+    assert(!L.canBuild(s, x, 2, 'straight') && !L.canBuild(s, x, 2, 'bridge'), 'field at ' + x);
+  }
+});
+test('racing and town puzzles get a race track or road to bridge; farm puzzles get fields', () => {
+  for (const [theme, ch] of [['racing', '#'], ['town', '=']]) {
+    let bridged = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const def = TG.generator.generate(4, seed * 37, theme);
+      assert(def.generated && TG.generator.verify(def), theme + ' solvable');
+      assert(def.map.some(r => r.includes(ch)), theme + ' has its ' + ch);
+      assert(!def.map.some(r => r.includes('~')), theme + ' has no river');
+      if (def.pieces.bridge) bridged++;
+    }
+    assert(bridged >= 18, theme + ': most puzzles need a bridge (' + bridged + ')');
+  }
+  let fields = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const def = TG.generator.generate(3, seed * 41, 'farm');
+    if (def.map.some(r => /[CA]/.test(r))) fields++;
+  }
+  assert(fields >= 15, 'farm puzzles have crops or meadows (' + fields + ')');
+});
+test('hand-made farm maps have fields, meadows and hay bales', () => {
+  for (const def of TG.LEVELS) {
+    assert(def.map.some(r => /[CA]/.test(r)) && def.map.some(r => r.includes('H')), def.id);
+  }
+});
+
 console.log('levels');
 for (const def of TG.LEVELS) {
   test(def.id + ': loads, starts unsolved, stored solution solves it', () => {

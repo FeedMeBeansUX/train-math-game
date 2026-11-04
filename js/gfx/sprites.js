@@ -121,18 +121,29 @@
     const isWater = (tx, ty) => ch(tx, ty) === '~';
     const W = state.w * TILE, Hh = state.h * TILE;
 
+    // Roads and race tracks continue off the map edge; fields and meadows end at it
+    const same = c => (tx, ty) => !L.inBounds(state, tx, ty) || L.terrainAt(state, tx, ty) === c;
+    const inside = c => (tx, ty) => L.inBounds(state, tx, ty) && L.terrainAt(state, tx, ty) === c;
+    const fieldOf = components(state, 'C');
+
     return makeSprite(W, Hh, set => {
       for (let ty = 0; ty < state.h; ty++) {
         for (let tx = 0; tx < state.w; tx++) {
-          if (isWater(tx, ty)) paintWaterTile(set, tx, ty, isWater);
-          else paintGrassTile(set, tx, ty, theme);
+          const c = ch(tx, ty);
+          if (c === '~') paintWaterTile(set, tx, ty, isWater);
+          else if (c === '=') paintRoad(set, tx, ty, same('='));
+          else if (c === '#') paintRaceTrack(set, tx, ty, same('#'));
+          else if (c === 'C') paintCrops(set, tx, ty, CROPS[fieldOf.get(ty * state.w + tx) % CROPS.length]);
+          else paintGrassTile(set, tx, ty, theme, c === 'A' ? 0.12 : 0);
         }
       }
       // Details on top of the ground
       for (let ty = 0; ty < state.h; ty++) {
         for (let tx = 0; tx < state.w; tx++) {
-          if (isWater(tx, ty)) continue;
+          const c = ch(tx, ty);
+          if (c === '~' || c === '=' || c === '#' || c === 'C') continue;
           paintGrassBlades(set, tx, ty, theme);
+          if (c === 'A') paintFence(set, tx, ty, inside('A'));
           if (ch(tx, ty) === 'f') {
             if (theme === 'construction') paintPebbles(set, tx, ty);
             else paintFlowers(set, tx, ty);
@@ -151,10 +162,10 @@
     return d > 0.6;
   }
 
-  function grassColor(X, Y, theme) {
+  function grassColor(X, Y, theme, lift) {
     const big = valueNoise(X / 28, Y / 28, 11);
     const clump = valueNoise(X / 7, Y / 7, 12);
-    let v = big * 0.5 + clump * 0.4 + hash2(X, Y, 13) * 0.28 - 0.08;
+    let v = big * 0.5 + clump * 0.4 + hash2(X, Y, 13) * 0.28 - 0.08 + (lift || 0);
     if (theme === 'construction') {
       if (isDirt(X, Y)) return shade(DIRT, clump * 0.6 + hash2(X, Y, 57) * 0.4);
       return shade(GRASS_DRY, v);
@@ -163,13 +174,119 @@
     return shade(C.grass, v);
   }
 
-  function paintGrassTile(set, tx, ty, theme) {
+  function paintGrassTile(set, tx, ty, theme, lift) {
     for (let y = 0; y < TILE; y++) {
       for (let x = 0; x < TILE; x++) {
         const X = tx * TILE + x, Y = ty * TILE + y;
-        set(X, Y, grassColor(X, Y, theme));
+        set(X, Y, grassColor(X, Y, theme, lift));
       }
     }
+  }
+
+  /** Connected areas of one map character (so a whole field gets one crop). Map: tile index -> area number. */
+  function components(state, c) {
+    const out = new Map();
+    let n = 0;
+    for (let i = 0; i < state.w * state.h; i++) {
+      if (state.terrain[i] !== c || out.has(i)) continue;
+      const stack = [i];
+      out.set(i, n);
+      while (stack.length) {
+        const k = stack.pop();
+        const x = k % state.w, y = Math.floor(k / state.w);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy, nk = ny * state.w + nx;
+          if (nx < 0 || ny < 0 || nx >= state.w || ny >= state.h || out.has(nk) || state.terrain[nk] !== c) continue;
+          out.set(nk, n);
+          stack.push(nk);
+        }
+      }
+      n++;
+    }
+    return out;
+  }
+
+  /** Which sides of a tile continue with the same ground: { n, e, s, w }. */
+  function sides(tx, ty, same) {
+    return { n: same(tx, ty - 1), e: same(tx + 1, ty), s: same(tx, ty + 1), w: same(tx - 1, ty) };
+  }
+
+  /** Town road: asphalt with pavements along its edges and a dashed centre line. */
+  function paintRoad(set, tx, ty, same) {
+    const sd = sides(tx, ty, same);
+    const along = sd.w || sd.e ? (sd.n || sd.s ? null : 'h') : (sd.n || sd.s ? 'v' : null);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const X = tx * TILE + x, Y = ty * TILE + y;
+        const edge = (!sd.n && y < 4) || (!sd.s && y > 27) || (!sd.w && x < 4) || (!sd.e && x > 27);
+        const kerb = (!sd.n && y === 4) || (!sd.s && y === 27) || (!sd.w && x === 4) || (!sd.e && x === 27);
+        let col;
+        if (edge) col = X % 8 === 0 || Y % 8 === 0 ? '#8f8a80' : '#aaa59a';
+        else if (kerb) col = '#d8d4cc';
+        else {
+          col = shade(['#45484d', '#4a4d52', '#505358'], hash2(X, Y, 61) * 0.7 + valueNoise(X / 6, Y / 6, 62) * 0.3);
+          // Dashed centre line (between the tiles of a road two tiles wide)
+          const dashH = along === 'h' && (sd.s && !sd.n ? y > 29 : sd.n && !sd.s ? y < 2 : y === 15 || y === 16) && X % 12 < 6;
+          const dashV = along === 'v' && (sd.e && !sd.w ? x > 29 : sd.w && !sd.e ? x < 2 : x === 15 || x === 16) && Y % 12 < 6;
+          if (dashH || dashV) col = '#e8e4d8';
+        }
+        set(X, Y, col);
+      }
+    }
+  }
+
+  /** Race track: dark asphalt with red-and-white kerbs and a white line along its edges. */
+  function paintRaceTrack(set, tx, ty, same) {
+    const sd = sides(tx, ty, same);
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const X = tx * TILE + x, Y = ty * TILE + y;
+        let col = shade(['#383b40', '#3e4146', '#44474c'], hash2(X, Y, 63) * 0.7 + valueNoise(X / 5, Y / 9, 64) * 0.3);
+        const kerbH = (!sd.n && y < 3) || (!sd.s && y > 28);
+        const kerbV = (!sd.w && x < 3) || (!sd.e && x > 28);
+        if (kerbH) col = Math.floor(X / 4) % 2 ? '#d23a2c' : '#f2efe6';
+        else if (kerbV) col = Math.floor(Y / 4) % 2 ? '#d23a2c' : '#f2efe6';
+        else if ((!sd.n && y === 4) || (!sd.s && y === 27) || (!sd.w && x === 4) || (!sd.e && x === 27)) col = '#e8e4d8';
+        set(X, Y, col);
+      }
+    }
+  }
+
+  const CROPS = ['wheat', 'cabbage', 'corn'];
+
+  /** A field of crops in rows that run on across neighbouring field tiles. */
+  function paintCrops(set, tx, ty, crop) {
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const X = tx * TILE + x, Y = ty * TILE + y;
+        let col = shade(['#6a4c2e', '#765735', '#80603c'], hash2(X, Y, 71));
+        const n = hash2(X, Y, 72);
+        if (crop === 'wheat') {
+          if (X % 4 === 1 || X % 4 === 2) col = n < 0.15 ? '#efd27a' : n < 0.6 ? '#d9b85a' : '#c49e44';
+        } else if (crop === 'cabbage') {
+          const dx = (X % 8) - 3.5, dy = (Y % 8) - 3.5;
+          const d = dx * dx + dy * dy;
+          if (d <= 8) col = dx + dy < -1 ? '#7ab84e' : d < 3 ? '#5f9a3e' : '#4a7f32';
+        } else {
+          if (X % 6 === 2 || X % 6 === 3) col = Y % 7 === 0 ? '#e0c040' : n < 0.5 ? '#5f9a3a' : '#4f8030';
+          else if (X % 6 === 4 && Y % 7 === 3) col = '#6fae44';
+        }
+        set(X, Y, col);
+      }
+    }
+  }
+
+  /** Wooden fence along the sides of a meadow that border something else. */
+  function paintFence(set, tx, ty, inside) {
+    const sd = sides(tx, ty, inside);
+    const post = '#5e4329', rail = '#8a6a48';
+    const X0 = tx * TILE, Y0 = ty * TILE;
+    const hLine = y => { for (let x = 0; x < TILE; x++) { set(X0 + x, Y0 + y, rail); set(X0 + x, Y0 + y + 3, rail); if (x % 8 === 0) set.rect(X0 + x, Y0 + y - 1, X0 + x + 1, Y0 + y + 4, post); } };
+    const vLine = x => { for (let y = 0; y < TILE; y++) { set(X0 + x, Y0 + y, rail); set(X0 + x + 3, Y0 + y, rail); if (y % 8 === 0) set.rect(X0 + x - 1, Y0 + y, X0 + x + 4, Y0 + y + 1, post); } };
+    if (!sd.n) hLine(1);
+    if (!sd.s) hLine(TILE - 5);
+    if (!sd.w) vLine(1);
+    if (!sd.e) vLine(TILE - 5);
   }
 
   function paintPebbles(set, tx, ty) {
@@ -695,6 +812,58 @@
     });
   }
 
+  // ================================================================ farm objects (top-down)
+
+  /** Round hay bales seen from above, with their spiral. */
+  function haybaleTop(v) {
+    const bales = v % 2 ? [[16, 17, 10]] : [[11, 19, 8], [22, 13, 7]];
+    return makeSprite(TILE, TILE, set => {
+      for (const [cx, cy, r] of bales) set.ellipse(cx + 2, cy + 3, r, r * 0.6, C.shadow);
+      for (const [cx, cy, r] of bales) {
+        for (let y = 0; y < TILE; y++) {
+          for (let x = 0; x < TILE; x++) {
+            const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy);
+            if (d > r) continue;
+            let col = d > r - 1.2 ? '#a8863a' : '#d9b85a';
+            if (Math.abs(d - r * 0.66) < 0.6 || Math.abs(d - r * 0.33) < 0.6) col = '#b8963e';
+            if (d < r - 1.2 && dx + dy < -r * 0.6 && hash2(x, y, 81) < 0.5) col = '#efd27a';
+            set(x, y, col);
+          }
+        }
+      }
+    });
+  }
+
+  /** A cow (black and white) or a sheep (fluffy white) for the meadows. */
+  function animal(kind) {
+    if (kind === 'cow') {
+      return makeSprite(16, 11, set => {
+        set.ellipse(8.5, 9.5, 7, 1.6, C.shadow);
+        set.rect(2, 3, 12, 8, '#f2efe6');
+        set.rect(2, 3, 12, 3, '#ffffff');
+        set.rect(4, 4, 6, 6, '#26221e');
+        set.rect(9, 5, 11, 7, '#26221e');
+        set.rect(12, 2, 15, 6, '#f2efe6');
+        set.rect(14, 5, 15, 6, '#e8a8a0');
+        set(13, 3, '#26221e');
+        set.rect(12, 1, 12, 1, '#c8c0b0');
+        set.rect(15, 1, 15, 1, '#c8c0b0');
+        set(1, 4, '#26221e');
+        set.rect(3, 9, 3, 9, '#5a504a');
+        set.rect(11, 9, 11, 9, '#5a504a');
+      });
+    }
+    return makeSprite(14, 10, set => {
+      set.ellipse(7, 8.5, 6, 1.5, C.shadow);
+      for (const [x, y] of [[3, 4], [6, 3], [9, 4], [4, 6], [7, 6], [10, 6]]) set.ellipse(x, y, 2.4, 2.2, '#f2efe6');
+      set.rect(4, 3, 9, 3, '#ffffff');
+      set.rect(11, 3, 13, 6, '#3a3330');
+      set(12, 4, '#f2efe6');
+      set.rect(4, 8, 4, 9, '#3a3330');
+      set.rect(9, 8, 9, 9, '#3a3330');
+    });
+  }
+
   // ================================================================ theme obstacles (top-down)
 
   /** Heap of sand or gravel (construction). */
@@ -801,6 +970,8 @@
       ctx.drawImage(TG.sprites.track(p.type, p.rot), 0, 0);
       return c;
     }),
+    haybaleTop: v => get('hayTop' + (v % 2), () => haybaleTop(v % 2)),
+    animal: v => get('animal' + (v % 3 === 0 ? 'sheep' : 'cow'), () => animal(v % 3 === 0 ? 'sheep' : 'cow')),
     topTrain: (kind, index) => get('top:' + kind + ':' + ((index || 0) % 3), () => topTrain(kind, index || 0)),
   };
 })(globalThis.TG = globalThis.TG || {});

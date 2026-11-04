@@ -16,12 +16,22 @@
 
   const T = TG.track;
 
+  /**
+   * Map characters. buildable: track can go here; bridgeable: only a bridge can cross it.
+   * Farm maps add crops, meadows with animals and hay bales; racing maps a race track and
+   * town maps a road, both winding across the map like a river.
+   */
   const TERRAIN = {
-    '.': { id: 'grass',   buildable: true },
-    'f': { id: 'flowers', buildable: true },
-    '~': { id: 'water',   buildable: false },
-    'T': { id: 'tree',    buildable: false },
-    'R': { id: 'rock',    buildable: false },
+    '.': { id: 'grass',     buildable: true },
+    'f': { id: 'flowers',   buildable: true },
+    '~': { id: 'water',     buildable: false, bridgeable: true },
+    '=': { id: 'road',      buildable: false, bridgeable: true },
+    '#': { id: 'racetrack', buildable: false, bridgeable: true },
+    'T': { id: 'tree',      buildable: false },
+    'R': { id: 'rock',      buildable: false },
+    'C': { id: 'crops',     buildable: false },
+    'A': { id: 'meadow',    buildable: false },
+    'H': { id: 'hay',       buildable: false },
   };
 
   function stationTrack(st) {
@@ -107,14 +117,14 @@
 
   /**
    * Can a new piece go on this tile? With a type: that piece specifically
-   * (bridges need water, the rest open ground). Without: any piece at all.
+   * (bridges cross water, roads and race tracks; the rest need open ground). Without: any piece at all.
    */
   function canBuild(state, x, y, type) {
     if (!inBounds(state, x, y)) return false;
     const i = idx(state, x, y);
     if (state.cells[i] || state.buildings[i]) return false;
     const ground = TERRAIN[state.terrain[i]];
-    const fits = t => (T.getPiece(t).on === 'water' ? ground.id === 'water' : ground.buildable);
+    const fits = t => (T.getPiece(t).on === 'water' ? !!ground.bridgeable : ground.buildable);
     return type ? fits(type) : T.INVENTORY_ORDER.some(fits);
   }
 

@@ -1006,6 +1006,32 @@
     });
   }
 
+  // ================================================================ cars (under road and race-track bridges)
+
+  /** A race car or a town car, seen from the side, facing right. */
+  function car(kind) {
+    if (kind === 'race') {
+      return makeSprite(22, 8, set => {
+        set.rect(1, 3, 20, 5, '#d23a2c');
+        set.rect(3, 2, 17, 2, '#e85a48');
+        set.rect(8, 1, 12, 2, '#26221e');
+        set.rect(19, 4, 21, 5, '#d23a2c');
+        set.rect(0, 1, 2, 3, '#26221e');
+        set.rect(10, 3, 12, 4, '#f2efe6');
+        for (const wx of [4, 16]) { set.rect(wx - 2, 5, wx + 2, 7, '#1e1e20'); set(wx, 6, '#8a8f98'); }
+      });
+    }
+    return makeSprite(20, 10, set => {
+      set.rect(1, 5, 18, 7, '#2a6fb0');
+      set.rect(4, 2, 14, 4, '#2a6fb0');
+      set.rect(5, 3, 8, 4, '#a9c7dd');
+      set.rect(10, 3, 13, 4, '#a9c7dd');
+      set.rect(17, 5, 18, 5, '#ffe58a');
+      set.rect(1, 5, 1, 6, '#c4483d');
+      for (const wx of [5, 14]) { set.rect(wx - 2, 7, wx + 2, 9, '#1e1e20'); set(wx, 8, '#8a8f98'); }
+    });
+  }
+
   // ================================================================ digits (5 x 7 pixel font)
 
   const DIGITS = {
@@ -1060,6 +1086,7 @@
     puff: r => get('puff' + r, () => puff(Math.max(1, r))),
     goodIcon: g => get('good:' + g, () => goodIcon(g)),
     digit: d => get('digit' + d, () => digit(d)),
+    car: kind => get('car:' + kind, () => car(kind)),
     DIGITS,
     crate: () => get('crate', crate),
     person: v => get('person' + (v % 12), () => person(v % 12)),

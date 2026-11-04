@@ -2,7 +2,7 @@
  * Puzzle generator: makes a new track puzzle for a puzzle level (1-8).
  *
  * Steps:
- *   1. optionally draw a river across the map;
+ *   1. optionally draw a river across the map (a race track in racing maps, a road in town maps);
  *   2. place the start station and the other stations (terminals with a buffer stop);
  *   3. scatter obstacles (trees, rocks);
  *   4. build a solution network: a path from the first station to the start,
@@ -30,6 +30,9 @@
   ];
 
   const MAX_BRIDGE = 3;
+  const GAP = new Set(['~', '=', '#']); // what a bridge can cross
+  /** Racing and town maps get a race track or a road instead of a river (except the very first level). */
+  const CROSSING = { racing: '#', town: '=' };
 
   function generate(level, seed, theme) {
     theme = theme || 'farm';
@@ -57,9 +60,11 @@
     const reserved = new Array(W * H).fill(false); // station and building tiles
     const portTile = new Array(W * H).fill(-1);    // tile next to a station's port: station index
 
-    // 1. River
+    // 1. River (or race track / road)
     let river = null;
-    if (rand() < params.river) river = drawRiver(terrain, rand, ri);
+    const crossing = CROSSING[theme] || '~';
+    const riverChance = CROSSING[theme] && !params.straight ? 1 : params.river;
+    if (rand() < riverChance) river = drawRiver(terrain, rand, ri, crossing);
 
     const land = (x, y) => inside(x, y) && terrain[idx(x, y)] === '.';
     const free = (x, y) => land(x, y) && !reserved[idx(x, y)] && portTile[idx(x, y)] < 0;
@@ -109,10 +114,11 @@
       if (stations.length < params.stations) return null;
     }
 
-    // 3. Obstacles: small clusters of trees and single rocks
+    // 3. Obstacles: small clusters of trees and single rocks (hay bales on farms)
+    if (theme === 'farm') placeFields(terrain, rand, ri, free, params.straight ? stations[0].y : -1);
     for (let i = 0; i < params.obstacles; i++) {
       const x = ri(0, W - 1), y = ri(0, H - 1);
-      if (free(x, y)) terrain[idx(x, y)] = rand() < 0.75 ? 'T' : 'R';
+      if (free(x, y)) terrain[idx(x, y)] = rand() < 0.75 ? 'T' : (theme === 'farm' && rand() < 0.6 ? 'H' : 'R');
     }
 
     // 4. Network: tile -> set of directions
@@ -143,7 +149,7 @@
         for (let d = 0; d < 4; d++) {
           let nx = cx + T.DX[d], ny = cy + T.DY[d];
           const water = [];
-          while (inside(nx, ny) && terrain[idx(nx, ny)] === '~' && water.length <= MAX_BRIDGE) {
+          while (inside(nx, ny) && GAP.has(terrain[idx(nx, ny)]) && water.length <= MAX_BRIDGE) {
             water.push(idx(nx, ny));
             nx += T.DX[d];
             ny += T.DY[d];
@@ -206,7 +212,7 @@
     const counts = { straight: 0, curve: 0, junction: 0, bridge: 0 };
     for (const [k, dirs] of net) {
       const x = k % W, y = Math.floor(k / W);
-      const p = pieceFor(dirs, terrain[k] === '~');
+      const p = pieceFor(dirs, GAP.has(terrain[k]));
       if (!p) return null;
       solution.push({ x, y, type: p.type, rot: p.rot });
       counts[p.type]++;
@@ -222,7 +228,7 @@
         if (!free(x, y) || net.has(k)) continue;
         const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1;
         const r = rand();
-        if (edge && r < 0.35) terrain[k] = 'T';
+        if (edge && r < 0.35) terrain[k] = theme === 'farm' && r < 0.07 ? 'H' : 'T';
         else if (r < 0.06) terrain[k] = 'f';
       }
     }
@@ -254,9 +260,30 @@
     return null;
   }
 
-  function drawRiver(terrain, rand, ri) {
+  /**
+   * Farm maps: one or two rectangular fields of crops ('C') or fenced meadows with animals ('A').
+   * `keepRow` (level 1) is the row the straight track runs on, which stays free.
+   */
+  function placeFields(terrain, rand, ri, free, keepRow) {
+    const count = ri(1, 2);
+    for (let f = 0, tries = 0; f < count && tries < 60; tries++) {
+      const w = ri(2, 3), h = ri(2, 3);
+      const x0 = ri(0, W - w), y0 = ri(0, H - h);
+      let ok = true;
+      for (let y = y0; y < y0 + h && ok; y++) {
+        for (let x = x0; x < x0 + w && ok; x++) if (!free(x, y) || y === keepRow) ok = false;
+      }
+      if (!ok) continue;
+      const ch = rand() < 0.55 ? 'C' : 'A';
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) terrain[y * W + x] = ch;
+      f++;
+    }
+  }
+
+  function drawRiver(terrain, rand, ri, ch) {
+    ch = ch || '~';
     const vertical = rand() < 0.6;
-    const width = ri(1, 2);
+    const width = ch === '#' ? 2 : ri(1, 2);
     const len = vertical ? H : W;
     let pos = vertical ? ri(5, W - 7) : ri(3, H - 5);
     const course = [];
@@ -269,7 +296,7 @@
       const from = Math.min(before, pos), to = Math.max(before, pos) + width - 1;
       for (let w = from; w <= to; w++) {
         const x = vertical ? w : i, y = vertical ? i : w;
-        terrain[y * W + x] = '~';
+        terrain[y * W + x] = ch;
       }
     }
     return { vertical, course, width };
@@ -300,5 +327,5 @@
     }
   }
 
-  TG.generator = { PUZZLE_LEVELS, generate, verify, pieceFor };
+  TG.generator = { PUZZLE_LEVELS, GAP, generate, verify, pieceFor };
 })(globalThis.TG = globalThis.TG || {});

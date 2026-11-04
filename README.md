@@ -44,7 +44,8 @@ In passenger rounds you choose the number of carriages instead (**−**/**+**); 
 train leaves. With switches turned on (⚙), you set the switches instead of choosing a station: the
 mini-map shows where the train will go, then press **Vertrek!**.
 
-Bridges can only be placed on water; the other pieces only on land.
+Bridges can only be placed over water, a road or the race track; the other pieces only on land
+(not on fields, meadows or hay bales).
 Yellow blinking dots show where the track can continue; red dots show ends
 that are blocked or don't fit. Stations get a ✓ once they are connected to the
 start station.

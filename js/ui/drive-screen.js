@@ -193,7 +193,11 @@
       const D = route.length * PX_PER_TILE;
       const worldEnd = STOP_X + D + (SS.W - STOP_X);
       const toX = d => STOP_X + (d / route.length) * D;
-      const bridges = R.spans(route, 'bridge').map(sp => ({ x0: toX(sp.start), x1: toX(sp.end) }));
+      // Bridges, with what they cross: water, a road or a race track (shown under the bridge)
+      const bridges = R.spans(route, 'bridge').map(sp => {
+        const seg = route.segments.find(g => Math.abs(g.start - sp.start) < 1e-9);
+        return { x0: toX(sp.start), x1: toX(sp.end), kind: seg ? L.terrainAt(this.state, seg.x, seg.y) : '~' };
+      });
       const from = L.stationById(this.state, this.current);
       const to = L.stationById(this.state, toId);
       this.renderer.setScene(Object.assign(this.sceneBase(), { startKind: from.kind, endKind: to.kind, worldEnd, bridges }));
